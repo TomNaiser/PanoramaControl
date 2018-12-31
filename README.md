@@ -1,9 +1,10 @@
 # PanoramaControl
-PanoramaControl is a control software for an automated pan/tilt panorama head.
+PanoramaControl is an open-source control software for motorized pan/tilt panorama heads.
+I have developed the software over almost 10 years, together with the corresponding hardware.
 
- It is written in C# (VisualStudio 2017) and its graphical user interface is based on Windows Forms. PanoramaControl is running on Microsoft Windows (tested on Windows 7, 8 and 10). I am running it from a small intel atom based netbook. Via a wireless connection (e.g. Bluetooth) position and camera(shutter)-commands are sent to the automated panorama head.  The automated panorama head is controlled by a microcontroller - currently an Arduino Mega is in use. 
+PanoramaControl is written in C# (VisualStudio 2017), its graphical user interface is based on Windows Forms. The software has been tested with Microsoft Windows (versions 7, 8 and 10). I am operating PanoramaControl from a small intel atom based netbook. Via a wireless connection (Bluetooth) position and camera(shutter)-commands are sent to the automated panorama head.  The motorized panorama platform is controlled by a microcontroller - currently an Arduino Mega 2560 is in use. 
 
-The arduino sketch PanoDuinoControl (another project of mine that can be found here on Github) handles the communication with PanoControl, and operates the RC-servos, position encoders and camera shutters. Cameras require a remote shutter  release which can be triggered by the microcontroller.
+The arduino sketch PanoDuinoControl (another project of mine that can be found here on Github) handles the communication with PanoControl, and operates the RC-servos, position encoders and camera shutters. Cameras require a remote shutter release which can be triggered by the microcontroller.
 
 
 Features:
@@ -14,7 +15,7 @@ Features:
 
 -adjustable timing, overlap parameters
 
--configuration (new Cameras etc.) can be set in PanoControlConfig.xml
+-configuration (new cameras etc.) can be set in PanoControlConfig.xml
 
 -enter start- and end-positions for panorama acquisition
 
