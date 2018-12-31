@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<configuration>
+<appSettings>
+<COMPort>COM7</COMPort>
+<baudrate>57600</baudrate>
+
+
+<!--- Konfiguration 1 - Lumix FZ200 24x -->
+<FocalLength_1> 600 </FocalLength_1>
+<ChipWidth_1> 26.25 </ChipWidth_1>
+<ChipHeight_1> 35 </ChipHeight_1>
+<VibrationDelay_1> 0.25 </VibrationDelay_1>
+<ExposureDelay_1> 0.7 </ExposureDelay_1>
+<MoveStepDeltaX_1> 0.25 </MoveStepDeltaX_1>
+<MoveStepDeltaY_1> 0.25 </MoveStepDeltaY_1>
+
+<!--- Konfiguration 2 - Lumix FZ200 12x -->
+<FocalLength_2> 350 </FocalLength_2>
+<ChipWidth_2> 26.25 </ChipWidth_2>
+<ChipHeight_2> 35 </ChipHeight_2>
+<VibrationDelay_2> 0.3 </VibrationDelay_2>
+<ExposureDelay_2> 0.7 </ExposureDelay_2>
+<MoveStepDeltaX_2> 1 </MoveStepDeltaX_2>
+<MoveStepDeltaY_2> 1 </MoveStepDeltaY_2>
+
+
+<!--- Konfiguration 3 - Powershot G9 Teleconverter 12x -->
+<FocalLength_3> 420 </FocalLength_3>
+<ChipWidth_3> 26.25 </ChipWidth_3>
+<ChipHeight_3> 35 </ChipHeight_3>
+<VibrationDelay_3> 0.3 </VibrationDelay_3>
+<ExposureDelay_3> 0.3 </ExposureDelay_3>
+<MoveStepDeltaX_3> 1 </MoveStepDeltaX_3>
+<MoveStepDeltaY_3> 1 </MoveStepDeltaY_3>
+
+
+<!--- Konfiguration 4 - A7RII f= 400mm -->
+<FocalLength_4> 400 </FocalLength_4>
+<ChipWidth_4> 24.0 </ChipWidth_4>
+<ChipHeight_4> 35.9 </ChipHeight_4>
+<VibrationDelay_4> 0.7 </VibrationDelay_4>
+<ExposureDelay_4> 0.5 </ExposureDelay_4>
+<MoveStepDeltaX_4> 1 </MoveStepDeltaX_4>
+<MoveStepDeltaY_4> 1 </MoveStepDeltaY_4>
+
+<!--- Konfiguration 5 - A7RII f=200mm -->
+<FocalLength_5> 200 </FocalLength_5>
+<ChipWidth_5> 24.0 </ChipWidth_5>
+<ChipHeight_5> 35.9 </ChipHeight_5>
+<VibrationDelay_5> 0.7 </VibrationDelay_5>
+<ExposureDelay_5> 0.5 </ExposureDelay_5>
+<MoveStepDeltaX_5> 2 </MoveStepDeltaX_5>
+<MoveStepDeltaY_5> 2 </MoveStepDeltaY_5>
+
+
+<!--- Konfiguration 6 - A7RII f=135mm -->
+<FocalLength_6> 135 </FocalLength_6>
+<ChipWidth_6> 24.0 </ChipWidth_6>
+<ChipHeight_6> 35.9 </ChipHeight_6>
+<VibrationDelay_6> 0.7 </VibrationDelay_6>
+<ExposureDelay_6> 0.5 </ExposureDelay_6>
+<MoveStepDeltaX_6> 3 </MoveStepDeltaX_6>
+<MoveStepDeltaY_6> 3 </MoveStepDeltaY_6>
+
+<!--- Konfiguration 7 - A7RII f=35mm -->
+<FocalLength_7> 35 </FocalLength_7>
+<ChipWidth_7> 24.0 </ChipWidth_7>
+<ChipHeight_7> 35.9 </ChipHeight_7>
+<VibrationDelay_7> 0.7 </VibrationDelay_7>
+<ExposureDelay_7> 0.5 </ExposureDelay_7>
+<MoveStepDeltaX_7> 4 </MoveStepDeltaX_7>
+<MoveStepDeltaY_7> 4 </MoveStepDeltaY_7>
+
+<!--- Konfiguration 8 -A7RII f=28mm -->
+<FocalLength_8> 28 </FocalLength_8>
+<ChipWidth_8> 24.0 </ChipWidth_8>
+<ChipHeight_8> 35.9 </ChipHeight_8>
+<VibrationDelay_8> 0.3 </VibrationDelay_8>
+<ExposureDelay_8> 0.3 </ExposureDelay_8>
+<MoveStepDeltaX_8> 4 </MoveStepDeltaX_8>
+<MoveStepDeltaY_8> 4 </MoveStepDeltaY_8>
+<ConvFacX> 1 </ConvFacX> <!--- Servo Units/degree -->
+<ConvFacY> 1</ConvFacY>
+<Overlap> 20 </Overlap>
+<PanoModus> 2 </PanoModus>
+
+<limitX1> -180 </limitX1>
+<limitX2> 180 </limitX2>
+<limitY1> -80 </limitY1>
+<limitY2> 80 </limitY2>
+<InitPosX> 0 </InitPosX>
+<InitPosY> 0 </InitPosY>
+
+<!--- Acceleration and Speed Parameters -->
+<PanSpeed> 100 </PanSpeed>
+<TiltSpeed> 255 </TiltSpeed>
+
+<PanAcc> 100 </PanAcc>
+<TiltAcc> 255 </TiltAcc>
+
+<!--- Additional Delay when acceleration Sensor LSM303 is in use -->
+<SensorVibDelay> 0.3 </SensorVibDelay>
+<UseAngleSensor> true </UseAngleSensor>
+<PanAngleSensorOffset> 0 </PanAngleSensorOffset>
+<TiltAngleSensorOffset> 0 </TiltAngleSensorOffset>
+<MovementThreshold> 200000 </MovementThreshold>
+
+<!--- Shutdown servos when the are close enough to the target position -->
+<ShutDownThreshold_x>1.0</ShutDownThreshold_x>
+<ShutDownThreshold_y>1.0</ShutDownThreshold_y>
+                         
+</appSettings>
+</configuration>
+
+
+          
