@@ -1,6 +1,6 @@
 # PanoramaControl
 PanoramaControl is an open-source control software for motorized pan/tilt panorama heads.
-I have developed the software over almost 10 years, together with the corresponding hardware (which is presented here: https://sites.google.com/site/thomasnaiser/tom'spages/panoramaplatform)
+I have developed the software over almost 10 years, together with the corresponding hardware (which is presented here: https://sites.google.com/site/thomasnaiser/tom'spages/GigapixelPanorama)
 
 PanoramaControl is written in C# (VisualStudio 2017), its graphical user interface is based on Windows Forms. The software has been tested with Microsoft Windows (versions 7, 8 and 10). I am operating PanoramaControl from a small intel atom based netbook. Via a wireless connection (Bluetooth) position and camera(shutter)-commands are sent to the automated panorama head.  The motorized panorama platform is controlled by a microcontroller - currently an Arduino Mega 2560 is in use. 
 
