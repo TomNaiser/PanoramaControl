@@ -220,6 +220,7 @@ namespace PanoramaControlApp
             // 
             // PauseButton
             // 
+            this.PauseButton.Enabled = false;
             this.PauseButton.Location = new System.Drawing.Point(833, 220);
             this.PauseButton.Margin = new System.Windows.Forms.Padding(4);
             this.PauseButton.Name = "PauseButton";
@@ -231,6 +232,7 @@ namespace PanoramaControlApp
             // 
             // StopButton
             // 
+            this.StopButton.Enabled = false;
             this.StopButton.Location = new System.Drawing.Point(889, 265);
             this.StopButton.Margin = new System.Windows.Forms.Padding(4);
             this.StopButton.Name = "StopButton";
@@ -878,6 +880,7 @@ namespace PanoramaControlApp
             // 
             // ContinueButton
             // 
+            this.ContinueButton.Enabled = false;
             this.ContinueButton.Location = new System.Drawing.Point(949, 220);
             this.ContinueButton.Margin = new System.Windows.Forms.Padding(4);
             this.ContinueButton.Name = "ContinueButton";
