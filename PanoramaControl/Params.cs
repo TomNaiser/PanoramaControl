@@ -17,6 +17,7 @@ namespace PanoramaControlApp
         public static String COMPortName;
         public static int BTbaudrate;
 
+        public static bool AcquisitionProcessExists; //Existing Acquisition Process
 
         public static double deltaX, deltaY;  //Angle increments
         public static double vX, vY;   //Speed

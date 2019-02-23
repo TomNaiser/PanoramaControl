@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Threading;
 
 namespace PanoramaControlApp
@@ -8,33 +9,66 @@ namespace PanoramaControlApp
 
         public delegate void OnUpdateServoPositionDelegate();
         public OnUpdateServoPositionDelegate OnUpdateServoPosition { get; set; }
-        public void UpdateServoPosition()
+        private object _sender;
+        public void UpdateServoPosition(object sender)
         {
-            OnUpdateServoPosition();
+            //OnUpdateServoPosition();
+            ((BackgroundWorker) sender).ReportProgress(0, new InterfaceClassAcquisition2UI
+            {
+                ServoXPos = 0,
+                ServoYPos = 0,
+                UpdateServoPos = true,
+                CommentText = "",
+                UpdateCommentText = false
+            });
         }
 
-        public delegate void OnUpdateServoPositionWithParamsDelegate(double pan,double tilt);
+        public delegate void OnUpdateServoPositionWithParamsDelegate(double pan, double tilt);
         public OnUpdateServoPositionWithParamsDelegate OnUpdateServoPositionWithParams { get; set; }
-        public void UpdateServoPosWithParams(double pan, double  tilt)
+        public void UpdateServoPosWithParams(double pan, double tilt, object sender)
         {
-            OnUpdateServoPositionWithParams(pan,tilt);
+            //OnUpdateServoPositionWithParams(pan, tilt);
+            ((BackgroundWorker)sender).ReportProgress(0, new InterfaceClassAcquisition2UI
+            {
+                ServoXPos = pan,
+                ServoYPos = tilt,
+                UpdateServoPos = true,
+                CommentText = "",
+                UpdateCommentText = false
+            });
         }
 
         public delegate void OnShowCommentOutputDelegate(String text);
         public OnShowCommentOutputDelegate OnShowCommentOutput { get; set; }
-        public void ShowNewCommentInGUI(String commentText)
-        {         
-                OnShowCommentOutput(commentText); //then call the callback           
+        public void ShowNewCommentInGUI(String commentText,object sender)
+        {
+            //OnShowCommentOutput(commentText); //then call the callback  
+            ((BackgroundWorker) sender).ReportProgress(0, new InterfaceClassAcquisition2UI
+            {
+                ServoXPos = 0,
+                ServoYPos = 0,
+                UpdateServoPos = false,
+                CommentText = commentText,
+                UpdateCommentText = true
+            });
         }
 
         //Parameters in angle degrees
-        public void AcquirePanorama(double start_X, double end_X, double delta_X, double start_Y, double end_Y, double delta_Y, int panoAcquisitionMode)
+        public void AcquirePanorama(double start_X, double end_X, double delta_X, double start_Y, double end_Y, double delta_Y, int panoAcquisitionMode, BackgroundWorker bgw, object sender, DoWorkEventArgs e)
         {
+            _sender = sender;
             double xPos, yPos;
             int waitTime;
+
             Params.StopAcquisition = false;
             Params.ImageNum = 0;
             double acVar = 100000;
+
+            
+            if (bgw.CancellationPending == true)
+            {
+                e.Cancel = true;
+            }
 
             //if there is no valid StartPos set - use the current position
             if (Params.ValidStartPosSet == false)
@@ -50,11 +84,12 @@ namespace PanoramaControlApp
             double servy = Params.StartPosY * Params.ConvFacY;
             muControllerInterface.MoveServo(Params.COMPortName, Params.BTbaudrate, 0, Params.StartPosX);
             Params.CurServoPosX = Params.StartPosX;  //Update Current Servo Position
-            UpdateServoPosition();
+            UpdateServoPosition(sender);
+            
             Thread.Sleep(4000);
             muControllerInterface.MoveServo(Params.COMPortName, Params.BTbaudrate, 1, Params.StartPosY);
             Params.CurServoPosY = Params.StartPosY;  //Update Current Servo Position
-            UpdateServoPosition();
+            UpdateServoPosition(sender);
             Thread.Sleep(2000);
 
             //panoAcquisitionMode = scanModeComboBox.SelectedIndex;
@@ -83,13 +118,17 @@ namespace PanoramaControlApp
                             Thread.Sleep(250);
                             //Application.DoEvents();   //Allow to update the Form to refresh the text labels and to react to input
                             if (Params.StopAcquisition == true)
-                                break;
+                                if (bgw.CancellationPending == true)
+                                {
+                                    e.Cancel = true;
+                                }
+                            break;
                         }
 
                         xPos = Params.StartPosX + nx * Params.deltaX;
                         yPos = Params.StartPosY + ny * Params.deltaY;
                         String OutputString = "nx: " + nx.ToString() + " ny: " + ny.ToString() + "\n";
-                        ShowNewCommentInGUI(OutputString);
+                        ShowNewCommentInGUI(OutputString, sender);
 
                         waitTime = Convert.ToInt32((Params.VibrationDelay + Params.ExposureDelay) * 1000);
                         if (nx == 0)
@@ -180,11 +219,19 @@ namespace PanoramaControlApp
                         GetAndSaveAngleCoords();
                         //Application.DoEvents();   //Allow to the Form to refresh the text labels
                         if (Params.StopAcquisition == true)
-                            break;
+                            if (bgw.CancellationPending == true)
+                            {
+                                e.Cancel = true;
+                            }
+                        break;
 
                     }
                     if (Params.StopAcquisition == true)
-                        break;
+                        if (bgw.CancellationPending == true)
+                        {
+                            e.Cancel = true;
+                        }
+                    break;
                 }
                 Params.StopAcquisition = false;  //reset the flag
             }
@@ -213,11 +260,15 @@ namespace PanoramaControlApp
 
                         while (Params.paused == true)   //In case of a pause wait here
                         {
-                            Thread.Sleep(Params.pauseInterval);
+                            //Thread.Sleep(Params.pauseInterval);
                             //Application.DoEvents();   //Allow to the Form to refresh the text labels
                             if (Params.StopAcquisition == true)
                             {
                                 Params.AcquisitionRunning = false;
+                                if (bgw.CancellationPending == true)
+                                {
+                                    e.Cancel = true;
+                                }
                                 break;
                             }
                         }
@@ -234,7 +285,7 @@ namespace PanoramaControlApp
                         Params.Target_y = yPos;
 
                         String OutputString = "nx: " + nx.ToString() + " ny: " + ny.ToString() + "\n";
-                        ShowNewCommentInGUI(OutputString);
+                        ShowNewCommentInGUI(OutputString, sender);
 
                         while (!readyToMove)
                         { }
@@ -245,14 +296,28 @@ namespace PanoramaControlApp
                         var totalTime = 0;
                         while (!TargetReached(0))
                         {
-                            Thread.Sleep(50); totalTime = totalTime + 50; if (totalTime == 12000) break; if (Params.StopAcquisition == true)
+                            Thread.Sleep(50); totalTime = totalTime + 50; if (totalTime == 12000) break;
+                            if (Params.StopAcquisition == true)
+                            {
+                                if (bgw.CancellationPending == true)
+                                {
+                                    e.Cancel = true;
+                                }
                                 break;
+                            }
                         }
                         totalTime = 0;
                         while (!TargetReached(1))
                         {
-                            Thread.Sleep(50); totalTime = totalTime + 50; if (totalTime == 12000) break; if (Params.StopAcquisition == true)
+                            Thread.Sleep(50); totalTime = totalTime + 50; if (totalTime == 12000) break;
+                            if (Params.StopAcquisition == true)
+                            {
+                                if (bgw.CancellationPending == true)
+                                {
+                                    e.Cancel = true;
+                                }
                                 break;
+                            }
                         }
                         if (ny == 0)   //After changing the row and going back from bottom to top we need to wait longer
                         {
@@ -306,7 +371,7 @@ namespace PanoramaControlApp
                                     if (totalDelayTime >= waitTime)
                                     {
                                         Console.WriteLine("Warning: Timeout - no exposure response from camera");
-                                        ShowNewCommentInGUI("Warning: Timeout - no exposure response from camera" + "\n");
+                                        ShowNewCommentInGUI("Warning: Timeout - no exposure response from camera" + "\n", sender);
                                         ExposureNotInTheBox = true;
                                         break;
                                     }
@@ -325,19 +390,29 @@ namespace PanoramaControlApp
                         GetAndSaveAngleCoords();
                         //Application.DoEvents();   //Allow to the Form to refresh the text labels
                         if (Params.StopAcquisition == true)
+                        {
+                            if (bgw.CancellationPending == true)
+                            {
+                                e.Cancel = true;
+                            }
                             break;
+                        }
 
                     }
                     if (Params.StopAcquisition == true)
                     {
                         Params.AcquisitionRunning = false;
+                        if (bgw.CancellationPending == true)
+                        {
+                            e.Cancel = true;
+                        }
                         break;
                     }
                 }
                 Params.StopAcquisition = false;  //reset the flag
                 Params.AcquisitionRunning = false;
 
-                ShowNewCommentInGUI("Panorama acquisition  stopped\n");
+                ShowNewCommentInGUI("Panorama acquisition  stopped\n", sender);
             }
 
             //***** Mode 2: Row meander panorama
@@ -352,11 +427,12 @@ namespace PanoramaControlApp
                         xPos = Params.StartPosX + nx * Params.deltaX;
                         yPos = Params.StartPosY + ny * Params.deltaY;
                         String OutputString = "nx: " + nx.ToString() + " ny: " + ny.ToString() + "\n";
-                        ShowNewCommentInGUI(OutputString);
+                        ShowNewCommentInGUI(OutputString, sender);
 
                         muControllerInterface.MoveServosToPosition(xPos, yPos);
                         Thread.Sleep(Convert.ToInt32((Params.VibrationDelay) * 1000));
                         CamShutter();
+                        
                         waitTime = Convert.ToInt32((Params.ExposureDelay) * 1000);
                         Thread.Sleep(waitTime);
 
@@ -391,7 +467,7 @@ namespace PanoramaControlApp
                         yPos = Params.StartPosY + ny * Params.deltaY;
                         String OutputString = "nx: " + nx.ToString() + " ny: " + ny.ToString() + "\n";
 
-                        ShowNewCommentInGUI(OutputString);
+                        ShowNewCommentInGUI(OutputString,sender);
 
 
                         muControllerInterface.MoveServosToPosition(xPos, yPos);
@@ -423,7 +499,7 @@ namespace PanoramaControlApp
                         xPos = Params.StartPosX + nx * Params.deltaX;
                         yPos = Params.StartPosY + ny * Params.deltaY;
                         String OutputString = "nx: " + nx.ToString() + " ny: " + ny.ToString() + "\n";
-                        ShowNewCommentInGUI(OutputString);
+                        ShowNewCommentInGUI(OutputString, sender);
                         // TakePhoto(xPos, yPos, Convert.ToInt32((VibrationDelay + ExposureDelay) * 1000));
                         muControllerInterface.MoveServosToPosition(xPos, yPos);
                         Thread.Sleep(Convert.ToInt32((Params.VibrationDelay) * 1000));
@@ -515,7 +591,7 @@ namespace PanoramaControlApp
                         yPos = -theta + thetaOffset;
                         String OutputString = "phi: " + phi.ToString() + " theta: " + theta.ToString() + "\n";
 
-                        ShowNewCommentInGUI(OutputString);
+                        ShowNewCommentInGUI(OutputString, sender);
 
                         waitTime = Convert.ToInt32((Params.VibrationDelay + Params.ExposureDelay) * 1000);
                         if (phi == -180)
@@ -645,7 +721,7 @@ namespace PanoramaControlApp
                 Params.PanSpeed = PanSpeedbackup;  //Revive the old speed value
             }
 
-
+            Params.AcquisitionProcessExists = false;
         }
 
         public bool TargetReached(int axis)
@@ -673,7 +749,11 @@ namespace PanoramaControlApp
                 //Read pan axis position
                 muControllerInterface.panAvailable = false; //Clear position data available flag
                 muControllerInterface.myPort.Write(new byte[] { 0xFD }, 0, 1);
-                while (!(muControllerInterface.panAvailable == true)) { }; //Wait with reading until position data is available
+                while (!(muControllerInterface.panAvailable == true)) {
+                    Thread.Sleep(100);
+                    muControllerInterface.myPort.Write(new byte[] { 0xFD }, 0, 1);
+
+                }; //Wait with reading until position data is available
                 Params.panAngle = Params.PanAngleSensorOffset - muControllerInterface.InputValAbs_x;
                 muControllerInterface.InputValAbs_x = 0;
 
@@ -685,15 +765,15 @@ namespace PanoramaControlApp
                 muControllerInterface.InputValAbs_y = 0;
 
 
-                UpdateServoPosWithParams(Params.panAngle, Params.tiltAngle);
+                UpdateServoPosWithParams(Params.panAngle, Params.tiltAngle, _sender);
                 PapyWizardHelper.SaveCoords(-Params.panAngle, -Params.tiltAngle, Params.ImageNum, 1); //Save the coordinates where the image was taken!
 
                 //Output Positions: MeasurePos-TargetPos
                 var dx = Params.panAngle - Params.Target_x;
                 var dy = Params.tiltAngle - Params.Target_y;
 
-                ShowNewCommentInGUI("TargetPos X " + Params.Target_x.ToString() + " Pos X " + Params.panAngle.ToString() + " Delta_x " + dx.ToString() + "\n");
-                ShowNewCommentInGUI("TargetPos Y" + Params.Target_y.ToString() + " Pos y " + Params.tiltAngle.ToString() + " Delta_y " + dy.ToString() + "\n");
+                ShowNewCommentInGUI("TargetPos X " + Params.Target_x.ToString() + " Pos X " + Params.panAngle.ToString() + " Delta_x " + dx.ToString() + "\n", _sender);
+                ShowNewCommentInGUI("TargetPos Y" + Params.Target_y.ToString() + " Pos y " + Params.tiltAngle.ToString() + " Delta_y " + dy.ToString() + "\n",_sender);
             }
             else //save the servo-coordinates
             {
@@ -701,7 +781,7 @@ namespace PanoramaControlApp
             }
         }
 
-        public  void CamShutter()
+        public void CamShutter()
         {
             Thread.Sleep(100);
 
@@ -714,7 +794,7 @@ namespace PanoramaControlApp
                 muControllerInterface.CamShutterRelease(Params.CamTriggerDuration);
             }
 
-            ShowNewCommentInGUI("Shutter released" + "\n");
+            if (_sender!=null) ShowNewCommentInGUI("Shutter released" + "\n",_sender);
 
             Params.ImageNum = Params.ImageNum + 1;
         }
@@ -728,36 +808,8 @@ namespace PanoramaControlApp
             }
         }
 
-        //Calculate the Field of View
-        public void CalcFOV()
-        {
-            if (Params.FocalLength == 0)
-            {
-                ShowNewCommentInGUI("FocalLength=0 is not allowed\n");
-                return;
-            }
 
-            if (Params.ChipWidth == 0)
-            {
-                ShowNewCommentInGUI("ChipWidth=0 is not allowed\n");
-                return;
-            }
 
-            if (Params.ChipHeight == 0)
-            {
-                ShowNewCommentInGUI("ChipHeight=0 is not allowed\n");
-                return;
-            }
-
-            //FOVx
-            Params.FOVx = (double)(2 * (180 / Math.PI) * Math.Atan(Params.ChipWidth / (2 * Params.FocalLength)));
-
-            //FOVy
-            Params.FOVy = (double)(2 * (180 / Math.PI) * Math.Atan(Params.ChipHeight / (2 * Params.FocalLength)));
-
-            Params.FOVx = Math.Round(Params.FOVx, 3);
-            Params.FOVy = Math.Round(Params.FOVy, 3);
-        }
 
     }
 

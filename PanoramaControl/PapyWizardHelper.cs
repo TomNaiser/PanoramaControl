@@ -11,6 +11,8 @@ namespace PanoramaControlApp
 
         public static String DataFileName;
 
+        private static object locker = new object();
+
         public static void SaveCoords(double x, double y, double sCNum, int trueCoords)
         {
             //PapyWizard Output Format
@@ -48,19 +50,29 @@ namespace PanoramaControlApp
 
         public static void CreatePositionDataXMLFiles()
         {
-            DataFileName = "PanoData" + DateTime.Now.ToString("MM_dd_yy_hh_mm_ss") + ".xml";
-            StreamWriter myStreamWriter;
-            myStreamWriter = File.CreateText(DataFileName);
+            lock (locker)
+            {
+                DataFileName = "PanoData" + DateTime.Now.ToString("MM_dd_yy_hh_mm_ss") + ".xml";
+                using (FileStream file = new FileStream(DataFileName, FileMode.Append, FileAccess.Write, FileShare.None))
+                {
+                   
 
-            myStreamWriter.WriteLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
-            myStreamWriter.WriteLine("<papywizard version=\"c\">");
-            myStreamWriter.WriteLine("<header>");
-            myStreamWriter.WriteLine("</header>");
-            myStreamWriter.WriteLine("<shoot>");
-            myStreamWriter.Close();
+                    StreamWriter myStreamWriter = new StreamWriter(file);
+                    //myStreamWriter = File.CreateText(DataFileName);
 
-            myStreamWriter = File.CreateText("Data" + DataFileName);
-            myStreamWriter.Close();
+                    myStreamWriter.WriteLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+                    myStreamWriter.WriteLine("<papywizard version=\"c\">");
+                    myStreamWriter.WriteLine("<header>");
+                    myStreamWriter.WriteLine("</header>");
+                    myStreamWriter.WriteLine("<shoot>");
+                    myStreamWriter.Flush();
+                    myStreamWriter.Close();
+
+                    myStreamWriter = File.CreateText("Data" + DataFileName);
+                    myStreamWriter.Flush();
+                    myStreamWriter.Close();
+                }
+            }
         }
 
         public static void ClosePositionDataXMLFiles()
@@ -71,11 +83,21 @@ namespace PanoramaControlApp
 
         public static void WriteToFile(String Filename, String Textline)
         {
-            if (Filename != null)
+            lock (locker)
             {
-                StreamWriter myStreamWriter = File.AppendText(Filename);
-                myStreamWriter.WriteLine(Textline);
-                myStreamWriter.Close();
+                if (Filename != null)
+                {
+                    using (FileStream file = new FileStream(Filename, FileMode.Append, FileAccess.Write, FileShare.None))
+                    {
+                        //StreamWriter myStreamWriter = File.AppendText(Filename
+                        //myStreamWriter.WriteLine(Textline);
+                        //myStreamWriter.Close();
+                        StreamWriter writer = new StreamWriter(file);
+                        writer.WriteLine(Textline);
+                        writer.Flush();
+                        writer.Close();
+                    }
+                }
             }
         }
     }

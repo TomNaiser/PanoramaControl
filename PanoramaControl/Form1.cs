@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using System.Threading;
 using System.Globalization;
 using System.Media;
+using System.ComponentModel;
 
 
 namespace PanoramaControlApp
@@ -15,6 +16,8 @@ namespace PanoramaControlApp
         #region Member variables
         Bitmap drawingBitMap;               //Panel showing the whole work area
         PanoramaAcquisitionClass PanoramaWorker;
+        private BackgroundWorker backgroundWorker;
+
         #endregion
 
         //ShowCommentOutput shows Infotext and can subscribes to events from other classes
@@ -28,6 +31,9 @@ namespace PanoramaControlApp
         public PanoControlForm()
         {
             InitializeComponent();
+            this.backgroundWorker = new BackgroundWorker();
+            this.backgroundWorker.WorkerSupportsCancellation = true;
+
             PanoramaWorker = new PanoramaAcquisitionClass();
 
             //Map events with delegates
@@ -35,7 +41,7 @@ namespace PanoramaControlApp
             PanoramaWorker.OnUpdateServoPosition = UpdateServoPosition;
             PanoramaWorker.OnUpdateServoPositionWithParams = UpdateServoPosWithParams;
 
-            PanoramaWorker.ShowNewCommentInGUI("PanoControl started");
+            //PanoramaWorker.ShowNewCommentInGUI("PanoControl started");
             drawingBitMap = new Bitmap(panel1.Width, panel1.Height, panel1.CreateGraphics());
             Graphics.FromImage(drawingBitMap).Clear(Color.White);
 
@@ -59,7 +65,11 @@ namespace PanoramaControlApp
             SpeedXTextBox.Text = Convert.ToString(Params.ServoSpeedX, CultureInfo.InvariantCulture);
             SpeedYTextBox.Text = Convert.ToString(Params.ServoSpeedY, CultureInfo.InvariantCulture);
 
-            PanoramaWorker.CalcFOV(); //Recalculate the field of view
+            var fovCheck = CalculationsHelper.CalcFOV();
+            CommentRTB.AppendText(fovCheck + "\n");
+            CommentRTB.Focus();
+            CommentRTB.ScrollToCaret();
+
             FOVxLabel.Text = "FOVx:       " + Params.FOVx.ToString() + "°";
             FOVyLabel.Text = "FOVy:       " + Params.FOVy.ToString() + "°";
 
@@ -349,17 +359,30 @@ namespace PanoramaControlApp
             UpdateAcquisitionGrid();
 
             //AcquirePanorama(Params.StartPosX, Params.StartPosX + Params.numX * Params.deltaX, Params.deltaX, Params.StartPosY, Params.StartPosY + Params.numY * Params.deltaY, Params.deltaY, Params.MoveModus);
-            PanoramaWorker.AcquirePanorama(Params.StartPosX, Params.StartPosX + Params.numX * Params.deltaX, Params.deltaX, Params.StartPosY, Params.StartPosY + Params.numY * Params.deltaY, Params.deltaY, Params.MoveModus);
-            PapyWizardHelper.ClosePositionDataXMLFiles();
-        }
-        
-        private void PanoControl_FormClosing(object sender, FormClosingEventArgs e)
-        {
-            if (muControllerInterface.myPort == null) return;
-            if (muControllerInterface.myPort.IsOpen == true)
-            {
-                muControllerInterface.ClosePort();
-            }
+            if (Params.AcquisitionProcessExists == true) return;
+            if (backgroundWorker.IsBusy) return;
+            Params.AcquisitionProcessExists = true; //Now we have an AcquisitionProcess
+
+            backgroundWorker.DoWork += Worker_AcquirePanorama;
+            backgroundWorker.ProgressChanged += Worker_ProgressChanged;
+            backgroundWorker.WorkerReportsProgress = true;
+            backgroundWorker.RunWorkerCompleted += Worker_RunWorkerCompleted;
+
+            //Then, we set the Worker off. 
+            //This triggers the DoWork event.
+            //Notice the word Async - it means that Worker gets its own thread,
+            //and the main thread will carry on with its own calculations separately.
+            //We can pass any data that the worker needs as a parameter.
+            backgroundWorker.RunWorkerAsync();
+            StartButton.Enabled = false;
+            StopButton.Enabled = true;
+            PauseButton.Enabled = true;
+            ContinueButton.Enabled = false;
+            CommentRTB.AppendText("Pano acquisition started" + "\n");
+            CommentRTB.Focus();
+            CommentRTB.ScrollToCaret();
+            // PanoramaWorker.AcquirePanorama(Params.StartPosX, Params.StartPosX + Params.numX * Params.deltaX, Params.deltaX, Params.StartPosY, Params.StartPosY + Params.numY * Params.deltaY, Params.deltaY, Params.MoveModus);
+            // PapyWizardHelper.ClosePositionDataXMLFiles();
         }
 
         private void StopButton_Click(object sender, EventArgs e)
@@ -370,7 +393,65 @@ namespace PanoramaControlApp
             CommentRTB.Focus();
             CommentRTB.ScrollToCaret();
             PapyWizardHelper.ClosePositionDataXMLFiles();
+
+            if (backgroundWorker.IsBusy)
+                backgroundWorker.CancelAsync();
+            StartButton.Enabled = true;
+            StopButton.Enabled = false;
+            PauseButton.Enabled = false;
+            ContinueButton.Enabled = false;
         }
+
+        private void Worker_AcquirePanorama(object sender, DoWorkEventArgs e)
+        {
+            if (backgroundWorker.CancellationPending == true)
+            {
+                e.Cancel = true;
+                return;
+            }
+
+            PanoramaWorker.AcquirePanorama(Params.StartPosX, Params.StartPosX + Params.numX * Params.deltaX, Params.deltaX, Params.StartPosY, Params.StartPosY + Params.numY * Params.deltaY, Params.deltaY, Params.MoveModus,this.backgroundWorker,sender,e);
+            PapyWizardHelper.ClosePositionDataXMLFiles();
+            //todo: here is the problem
+           // ((BackgroundWorker)sender).ReportProgress(progress);
+        }
+
+
+        private void Worker_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            //This method is called whenever we call ReportProgress()
+            //It its not restricted to reporting the progress parameter alone but can transfer a complete user defined class
+            //which tells us how to update the user interface (based on calculations in the calling thread)
+
+            var AcqInterface = (InterfaceClassAcquisition2UI)e.UserState;
+            if (AcqInterface.UpdateServoPos)
+            {
+                UpdateServoPosWithParams(AcqInterface.ServoXPos, AcqInterface.ServoYPos);
+            }
+            if (AcqInterface.UpdateCommentText)
+            {
+                ShowCommentOutput(AcqInterface.CommentText);
+            }
+        }
+
+        private void Worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            //This method is optional but very useful. 
+            //It is called once Worker_DoWork has finished.
+
+            //lblStatus.Content += "All images downloaded successfully.";
+            //progBar.Value = 0;
+        }
+        private void PanoControl_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (muControllerInterface.myPort == null) return;
+            if (muControllerInterface.myPort.IsOpen == true)
+            {
+                muControllerInterface.ClosePort();
+            }
+        }
+
+
 
         private void ShutterTestButton_Click(object sender, EventArgs e)
         {
@@ -408,7 +489,11 @@ namespace PanoramaControlApp
             FocalLengthTextBox.Text = ValidateDouble(FocalLengthTextBox.Text, 420, 1, 2000).ToString(CultureInfo.InvariantCulture);
             Params.changeParam = 3;
             Params.FocalLength = Convert.ToDouble(FocalLengthTextBox.Text, CultureInfo.InvariantCulture);
-            PanoramaWorker.CalcFOV();
+            var fovCheck=CalculationsHelper.CalcFOV();
+            CommentRTB.AppendText(fovCheck + "\n");
+            CommentRTB.Focus();
+            CommentRTB.ScrollToCaret();
+
             FOVxLabel.Text = "FOVx:       " + Params.FOVx.ToString() + "°";
             FOVyLabel.Text = "FOVy:       " + Params.FOVy.ToString() + "°";
         }
@@ -425,7 +510,11 @@ namespace PanoramaControlApp
             ChipWTextBox.Text = ValidateDouble(ChipWTextBox.Text, 35, 1, 100).ToString(CultureInfo.InvariantCulture);
             Params.changeParam = 5;
             Params.ChipWidth = Convert.ToDouble(ChipWTextBox.Text, CultureInfo.InvariantCulture);
-            PanoramaWorker.CalcFOV();
+            var fovCheck = CalculationsHelper.CalcFOV();
+            CommentRTB.AppendText(fovCheck + "\n");
+            CommentRTB.Focus();
+            CommentRTB.ScrollToCaret();
+
             FOVxLabel.Text = "FOVx:       " + Params.FOVx.ToString() + "°";
             FOVyLabel.Text = "FOVy:       " + Params.FOVy.ToString() + "°";
         }
@@ -435,7 +524,10 @@ namespace PanoramaControlApp
             ChipHTextBox.Text = ValidateDouble(ChipHTextBox.Text, 26, 1, 100).ToString(CultureInfo.InvariantCulture);
             Params.changeParam = 6;
             Params.ChipHeight = Convert.ToDouble(ChipHTextBox.Text, CultureInfo.InvariantCulture);
-            PanoramaWorker.CalcFOV();
+            var fovCheck = CalculationsHelper.CalcFOV();
+            CommentRTB.AppendText(fovCheck + "\n");
+            CommentRTB.Focus();
+            CommentRTB.ScrollToCaret();
             FOVxLabel.Text = "FOVx:       " + Params.FOVx.ToString() + "°";
             FOVyLabel.Text = "FOVy:       " + Params.FOVy.ToString() + "°";
         }
@@ -626,7 +718,10 @@ namespace PanoramaControlApp
             VibDelayTextBox.Text = Convert.ToString(Params.VibrationDelay, CultureInfo.InvariantCulture);
             ExpDelayTextBox.Text = Convert.ToString(Params.ExposureDelay, CultureInfo.InvariantCulture);
 
-            PanoramaWorker.CalcFOV();
+            var fovCheck = CalculationsHelper.CalcFOV();
+            CommentRTB.AppendText(fovCheck + "\n");
+            CommentRTB.Focus();
+            CommentRTB.ScrollToCaret();
             FOVxLabel.Text = "FOVx:       " + Params.FOVx.ToString() + "°";
             FOVyLabel.Text = "FOVy:       " + Params.FOVy.ToString() + "°";
         }
@@ -634,11 +729,15 @@ namespace PanoramaControlApp
         private void PauseButton_Click(object sender, EventArgs e)
         {
             Params.paused = true;   //Begin pause, set the paused-Flag
+            ContinueButton.Enabled = true;
+            PauseButton.Enabled = false;
         }
 
         private void ContinueButton_Click(object sender, EventArgs e)
         {
             Params.paused = false;  //End the pause, reset the paused-Flag
+            PauseButton.Enabled = true;
+            ContinueButton.Enabled = false;
         }
 
         private void ColBackButton_Click(object sender, EventArgs e)
