@@ -76,12 +76,12 @@ namespace PanoramaControlApp
                 //Inputformat:  Type [Space] float
                 string indataMod = indata.Replace(',', '.');  //
                 string[] indataSplit = indataMod.Split(' ');  //Delimiter=Space
-
+                
                 var inputType = int.Parse(indataSplit[0], CultureInfo.InvariantCulture);
-
+                /*
                 if (inputType == 1 || inputType == 2) {
                     Console.WriteLine(indataMod);
-                }
+                }*/
 
                 if (inputType == 1) //Abs_x
                 {
@@ -321,6 +321,9 @@ namespace PanoramaControlApp
                 //CommentRTB.AppendText("Limit Y2 exceeded" + "\n");
             }
 
+            Params.OldServoPosX = Params.CurServoPosX;
+            Params.OldServoPosY = Params.CurServoPosY;
+
             //Here come the actual  move commands
             muControllerInterface.MoveServo(Params.COMPortName, Params.BTbaudrate, 0, x);
             Params.CurServoPosX = (double)servoPosX / Params.ConvFacX;  //Update Current Servo Position X
@@ -328,6 +331,8 @@ namespace PanoramaControlApp
 
             muControllerInterface.MoveServo(Params.COMPortName, Params.BTbaudrate, 1, y);
             Params.CurServoPosY = (double)servoPosY / Params.ConvFacY;  //Update Current Servo Position Y
+
+
         }
 
         public static int MovePositionManually(double ax, double ay)

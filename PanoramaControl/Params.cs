@@ -39,7 +39,8 @@ namespace PanoramaControlApp
         public static int numY;                     // # of rows
         public static double ConvFacX, ConvFacY;    // Conversion Factor Servo Units/degree
 
-        public static double CurPosX, CurPosY;       //current position
+        //public static double CurPosX, CurPosY;       //current position
+        public static double OldServoPosX, OldServoPosY;       //previous position
         public static int changeParam;  //Indicator for the Parameter changed last
 
         //TargetPositions

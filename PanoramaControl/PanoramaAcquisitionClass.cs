@@ -292,6 +292,10 @@ namespace PanoramaControlApp
                         Thread.Sleep(1000);
                         muControllerInterface.MoveServosToPosition(xPos, yPos);
 
+                        var moveDistX=Math.Abs(Params.CurServoPosX-Params.OldServoPosX);
+                        var moveDistY = Math.Abs(Params.CurServoPosY - Params.OldServoPosY);
+
+                        Console.WriteLine($"moveDistx: {moveDistX}  moveDisty: {moveDistY}");
                         //Wait until target position is reached
                         var totalTime = 0;
                         while (!TargetReached(0))
@@ -319,6 +323,8 @@ namespace PanoramaControlApp
                                 break;
                             }
                         }
+
+                        /*
                         if (ny == 0)   //After changing the row and going back from bottom to top we need to wait longer
                         {
                             waitTime = Convert.ToInt32((Params.VibrationDelay) * 1000);
@@ -329,7 +335,13 @@ namespace PanoramaControlApp
                         {
                             waitTime = Convert.ToInt32((Params.VibrationDelay) * 1000);
                             Thread.Sleep(waitTime);
-                        }
+                        } */
+
+                        waitTime = Convert.ToInt32((Params.VibrationDelay) * 1000);
+                        waitTime = waitTime + (int)(Math.Max(moveDistX, moveDistY)*2000/50.0); //estimated speed 2000ms per 50 degree
+                        Console.WriteLine($"WaitTime (ms): {waitTime}");
+                        Thread.Sleep(waitTime);
+
 
                         //Logics: Repeat Shutter until we get a response from the flash
                         //Only after this we can leave the loop to go to the next image position
