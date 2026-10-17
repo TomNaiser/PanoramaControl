@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PanoramaControl Version 26", "PanoramaControl Version 26.csproj", "{8E6A7D9E-3EFF-357F-7F7E-0E62BA9952C2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PanoramaControl Version 27", "PanoramaControl Version 27.csproj", "{A39589A6-8E21-AE33-7A90-A2239846A182}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8E6A7D9E-3EFF-357F-7F7E-0E62BA9952C2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8E6A7D9E-3EFF-357F-7F7E-0E62BA9952C2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8E6A7D9E-3EFF-357F-7F7E-0E62BA9952C2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8E6A7D9E-3EFF-357F-7F7E-0E62BA9952C2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A39589A6-8E21-AE33-7A90-A2239846A182}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A39589A6-8E21-AE33-7A90-A2239846A182}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A39589A6-8E21-AE33-7A90-A2239846A182}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A39589A6-8E21-AE33-7A90-A2239846A182}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D4A09CA6-8E36-4C96-8508-69F6B0C8C2A5}
+	EndGlobalSection
+EndGlobal

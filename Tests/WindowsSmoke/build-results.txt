@@ -1,0 +1,13 @@
+OK: 166 Tests erfolgreich.
+D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\PanoramaControl\muControllerInterface.cs(52,34): warning CS0168: Die Variable "portexcep" ist deklariert, wird aber nie verwendet. [D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\PanoramaControl\PanoramaControl Version 27.csproj]
+D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\PanoramaControl\muControllerInterface.cs(141,30): warning CS0168: Die Variable "ex" ist deklariert, wird aber nie verwendet. [D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\PanoramaControl\PanoramaControl Version 27.csproj]
+D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\PanoramaControl\muControllerInterface.cs(159,30): warning CS0168: Die Variable "ex" ist deklariert, wird aber nie verwendet. [D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\PanoramaControl\PanoramaControl Version 27.csproj]
+D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\PanoramaControl\muControllerInterface.cs(203,30): warning CS0168: Die Variable "ex" ist deklariert, wird aber nie verwendet. [D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\PanoramaControl\PanoramaControl Version 27.csproj]
+D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\PanoramaControl\muControllerInterface.cs(413,30): warning CS0168: Die Variable "ex" ist deklariert, wird aber nie verwendet. [D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\PanoramaControl\PanoramaControl Version 27.csproj]
+D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\PanoramaControl\PanoramaAcquisitionClass.cs(119,56): warning CS0162: Unerreichbarer Code wurde entdeckt. [D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\PanoramaControl\PanoramaControl Version 27.csproj]
+D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\PanoramaControl\PanoramaAcquisitionClass.cs(117,52): warning CS0162: Unerreichbarer Code wurde entdeckt. [D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\PanoramaControl\PanoramaControl Version 27.csproj]
+  PanoramaControl Version 27 -> D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\PanoramaControl\bin\Release\PanoramaControl.exe
+  WindowsSmoke -> D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\Tests\WindowsSmoke\bin\WindowsSmoke.exe
+OK: 81 Windows-UI-Prüfungen; Renderings: D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\Tests\WindowsSmoke\artifacts
+Windows-Paket: D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\releases\27.4.0
+ZIP: D:\KI-Repository\PanoramaSoftware\PanoramaControlGitRepo\releases\PanoramaControl-27.4.0.zip

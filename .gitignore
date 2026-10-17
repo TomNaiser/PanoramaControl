@@ -328,3 +328,7 @@ ASALocalRun/
 
 # MFractors (Xamarin productivity tool) working folder 
 .mfractor/
+
+# Ephemeral simulator state; retain the deliberate test reports and screenshots.
+/Tests/WindowsSmoke/preview-repro/preview-*/
+/Tests/WindowsSmoke/hardware/owned-run.txt

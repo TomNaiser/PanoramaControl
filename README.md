@@ -1,4 +1,7 @@
 # PanoramaControl
+
+Windows **27.4.3**, 17. Oktober 2026: [Automatische Rastervorschau nach Start/Ende, eindeutige Endpunktanzeige und unmittelbare Übertragung des neuen Entwurfs](WINDOWS-27.4.3-RASTERVORSCHAU.md). [Tilt-Anzeige ±25°, klassische Klicknavigation und Android-Haltepfeile](WINDOWS-27.4.2-BEDIENUNG.md) bleiben erhalten. [Funktionszuordnung zu Android 0.6.19](WINDOWS-27.4.1-ABGLEICH.md), [bisherige Geräteprüfung und offene Hardwarepunkte](WINDOWS-27.4.0-ABNAHME.md); reproduzierbarer Paketbuild mit `pwsh -File Tests/build-windows.ps1`. Die Firmware wurde nicht geändert. Die folgenden Angaben beschreiben den historischen Projektstand.
+
 PanoramaControl is an open-source control software for motorized pan/tilt panorama heads.
 I have developed the software over almost 10 years, together with the corresponding hardware (which is presented here: https://sites.google.com/site/thomasnaiser/home/gigapixel-hardware)
 

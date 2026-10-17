@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using System.IO;
 using System.Xml;
 
 namespace PanoramaControlApp
@@ -7,7 +8,14 @@ namespace PanoramaControlApp
     public static class Params
     {
         public static bool connected;
-        public const int numConfigs = 8;
+        public static bool ConfigurationFileLoaded;
+        public static string ConfigurationFilePath;
+        public static string ConfigurationWarning;
+        public static bool StopOnConnectionLoss;
+        public static uint ConnectionTimeoutMs;
+        public const int numConfigs = 9;
+        // Reihenfolge der Kameraauswahl in der GUI -> Nummer im Konfigurationsfile (nullbasiert).
+        private static readonly int[] CameraConfigIndices = { 3, 4, 5, 6, 7, 8, 1, 2 };
         public static bool ValidStartPosSet;
         public static bool ValidEndPosSet;
         public static bool ValidNumXSet;
@@ -37,7 +45,7 @@ namespace PanoramaControlApp
         public static double Overlap;
         public static int numX;                     // # of columns
         public static int numY;                     // # of rows
-        public static double ConvFacX, ConvFacY;    // Conversion Factor Servo Units/degree
+        public static double ConvFacX, ConvFacY;    // Nur Legacy-V1; V2 verwendet Milligrad ohne Umrechnungsfaktor.
 
         //public static double CurPosX, CurPosY;       //current position
         public static double OldServoPosX, OldServoPosY;       //previous position
@@ -51,11 +59,11 @@ namespace PanoramaControlApp
         public static double StartPosX, StartPosY;
         public static double EndPosX, EndPosY;
 
-        //Upper/lower limits in Servo coordinates
+        // Sichtbare Clientgrenzen; verbindliche Kollisionsgrenzen liegen in der Firmware.
         public static int limitX1, limitX2;
         public static int limitY1, limitY2;
 
-        //Initial Servo Positions (in Servo Units)
+        // Initiale UI-Positionen in Grad.
         public static int InitPosX, InitPosY;
 
         //Current Servo Positions (in Degrees)
@@ -95,7 +103,7 @@ namespace PanoramaControlApp
         public static int TiltMinAng;
         public static int TiltMaxAng;
 
-        //ShutdownThreshold (to shut down servo when its close to the target - to make it quiet)
+        // Legacy-V1-Schwellwerte; V2 bestaetigt Zielerreichung auf der Firmware.
         public static float ShutDownThreshold_x;
         public static float ShutDownThreshold_y;
 
@@ -154,9 +162,27 @@ namespace PanoramaControlApp
         //Other
         public static int pauseInterval; //Time interval for GUI updates during pause
 
+        public static void ApplyCameraSelection(int guiIndex)
+        {
+            if (guiIndex < 0 || guiIndex >= CameraConfigIndices.Length) throw new ArgumentOutOfRangeException("guiIndex");
+            int configIndex = CameraConfigIndices[guiIndex];
+            FocalLength = FocalLengthOptions[configIndex];
+            ChipWidth = ChipWidthOptions[configIndex];
+            ChipHeight = ChipHeightOptions[configIndex];
+            VibrationDelay = VibrationDelayOptions[configIndex];
+            ExposureDelay = ExposureDelayOptions[configIndex];
+            MoveStepDeltaX = MoveStepDeltaXOptions[configIndex];
+            MoveStepDeltaY = MoveStepDeltaYOptions[configIndex];
+        }
+
         public static void SetDefaultValues()
         {
             connected = false;
+            ConfigurationFileLoaded = false;
+            ConfigurationFilePath = string.Empty;
+            ConfigurationWarning = string.Empty;
+            StopOnConnectionLoss = false;
+            ConnectionTimeoutMs = 5000;
             ValidStartPosSet = false;
             ValidEndPosSet = false;
             ValidNumXSet = false;
@@ -250,6 +276,17 @@ namespace PanoramaControlApp
             SensorExpDelay = 0;
 
             MovementThreshold = 30000;
+
+            for (int option = 0; option < numConfigs; option++)
+            {
+                FocalLengthOptions[option] = FocalLength;
+                ChipWidthOptions[option] = ChipWidth;
+                ChipHeightOptions[option] = ChipHeight;
+                VibrationDelayOptions[option] = VibrationDelay;
+                ExposureDelayOptions[option] = ExposureDelay;
+                MoveStepDeltaXOptions[option] = MoveStepDeltaX;
+                MoveStepDeltaYOptions[option] = MoveStepDeltaY;
+            }
         }
 
         //Read parameters from an XML-Config file
@@ -258,12 +295,30 @@ namespace PanoramaControlApp
             //string appConfigFilePath = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + "\\PanoControlConfig.xml";
             //string appConfigFilePath=Assembly.GetExecutingAssembly().Location + ".config";
 
-            string appConfigFilePath = "C:/PanoControlConfig.xml";
+            string localConfigFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "PanoControlConfig.xml");
+            string legacyConfigFilePath = "C:/PanoControlConfig.xml";
+            // Die ausgelieferte Beispielkonfiguration darf vorhandene Profile am
+            // bisherigen Windows-Pfad nicht unbemerkt verdrängen.
+            string appConfigFilePath = File.Exists(legacyConfigFilePath)
+                ? legacyConfigFilePath
+                : localConfigFilePath;
+            readConfigFile(appConfigFilePath);
+        }
+
+        public static void readConfigFile(string appConfigFilePath)
+        {
+            if (!File.Exists(appConfigFilePath)) return;
+            ConfigurationFileLoaded = true;
+            ConfigurationFilePath = appConfigFilePath;
+            ConfigurationWarning = string.Empty;
+            StopOnConnectionLoss = false;
+            ConnectionTimeoutMs = 5000;
             //string appConfigFilePath = Path.GetDirectoryName(Application.ExecutablePath) + "\\PanoControlConfig.xml";
 
-            XmlReader reader = XmlReader.Create(appConfigFilePath); //Not finding the right path will crash
-            while (reader.Read())
+            using (XmlReader reader = XmlReader.Create(appConfigFilePath))
             {
+              while (reader.Read())
+              {
                 if (reader.NodeType == XmlNodeType.Element)
                 {
 
@@ -277,6 +332,17 @@ namespace PanoramaControlApp
                             break;
                         case "baudrate":
                             BTbaudrate = Convert.ToInt32(reader.ReadString(), CultureInfo.InvariantCulture);
+                            break;
+                        case "StopOnConnectionLoss":
+                            bool stopOnLoss;
+                            if (bool.TryParse(reader.ReadString(), out stopOnLoss)) StopOnConnectionLoss = stopOnLoss;
+                            else ConfigurationWarning += "StopOnConnectionLoss ist ungültig; Standardwert wird verwendet. ";
+                            break;
+                        case "ConnectionTimeoutMs":
+                            uint timeoutMs;
+                            if (uint.TryParse(reader.ReadString(), NumberStyles.None, CultureInfo.InvariantCulture, out timeoutMs) &&
+                                timeoutMs >= 500 && timeoutMs <= 60000) ConnectionTimeoutMs = timeoutMs;
+                            else ConfigurationWarning += "ConnectionTimeoutMs ist ungültig; Standardwert wird verwendet. ";
                             break;
                         case "FocalLength_1":
                             FocalLengthOptions[0] = Convert.ToDouble(reader.ReadString(), CultureInfo.InvariantCulture);
@@ -365,6 +431,15 @@ namespace PanoramaControlApp
                         case "ChipHeight_8":
                             ChipHeightOptions[7] = Convert.ToDouble(reader.ReadString(), CultureInfo.InvariantCulture);
                             break;
+                        case "FocalLength_9":
+                            FocalLengthOptions[8] = Convert.ToDouble(reader.ReadString(), CultureInfo.InvariantCulture);
+                            break;
+                        case "ChipWidth_9":
+                            ChipWidthOptions[8] = Convert.ToDouble(reader.ReadString(), CultureInfo.InvariantCulture);
+                            break;
+                        case "ChipHeight_9":
+                            ChipHeightOptions[8] = Convert.ToDouble(reader.ReadString(), CultureInfo.InvariantCulture);
+                            break;
 
                         case "Overlap":
                             Overlap = Convert.ToDouble(reader.ReadString(), CultureInfo.InvariantCulture);
@@ -423,6 +498,12 @@ namespace PanoramaControlApp
                             break;
                         case "ExposureDelay_8":
                             ExposureDelayOptions[7] = Convert.ToDouble(reader.ReadString(), CultureInfo.InvariantCulture);
+                            break;
+                        case "VibrationDelay_9":
+                            VibrationDelayOptions[8] = Convert.ToDouble(reader.ReadString(), CultureInfo.InvariantCulture);
+                            break;
+                        case "ExposureDelay_9":
+                            ExposureDelayOptions[8] = Convert.ToDouble(reader.ReadString(), CultureInfo.InvariantCulture);
                             break;
                         case "ConvFacX":
                             ConvFacX = Convert.ToDouble(reader.ReadString(), CultureInfo.InvariantCulture);
@@ -496,6 +577,12 @@ namespace PanoramaControlApp
                         case "MoveStepDeltaY_8":
                             MoveStepDeltaYOptions[7] = Convert.ToDouble(reader.ReadString(), CultureInfo.InvariantCulture);
                             break;
+                        case "MoveStepDeltaX_9":
+                            MoveStepDeltaXOptions[8] = Convert.ToDouble(reader.ReadString(), CultureInfo.InvariantCulture);
+                            break;
+                        case "MoveStepDeltaY_9":
+                            MoveStepDeltaYOptions[8] = Convert.ToDouble(reader.ReadString(), CultureInfo.InvariantCulture);
+                            break;
 
                         case "PanSpeed":
                             PanSpeed = Convert.ToInt32(reader.ReadString(), CultureInfo.InvariantCulture);
@@ -542,6 +629,7 @@ namespace PanoramaControlApp
                             break;
                     }
                 }
+              }
             }
         }
     }

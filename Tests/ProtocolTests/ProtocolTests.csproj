@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\PanoramaControl\Params.cs" Link="Params.cs" />
+    <Compile Include="..\..\PanoramaControl\CalculationsHelper.cs" Link="CalculationsHelper.cs" />
+    <Compile Include="..\..\PanoramaControl\Application\PanoramaPlanFactory.cs" Link="Application\PanoramaPlanFactory.cs" />
+    <Compile Include="..\..\PanoramaControl\Communication\ISerialTransport.cs" Link="Communication\ISerialTransport.cs" />
+    <Compile Include="..\..\PanoramaControl\Application\PapyWizardRunExporter.cs" Link="Application\PapyWizardRunExporter.cs" />
+    <Compile Include="..\..\PanoramaControl\Application\ManualMoveTargets.cs" Link="Application\ManualMoveTargets.cs" />
+    <Compile Include="..\..\PanoramaControl\Application\RunTimingSettings.cs" Link="Application\RunTimingSettings.cs" />
+    <Compile Include="..\..\PanoramaControl\PapyWizardHelper.cs" Link="PapyWizardHelper.cs" />
+    <Compile Include="..\..\PanoramaControl\Domain\AngleMdeg.cs" Link="Domain\AngleMdeg.cs" />
+    <Compile Include="..\..\PanoramaControl\Domain\CoordinateContract.cs" Link="Domain\CoordinateContract.cs" />
+    <Compile Include="..\..\PanoramaControl\Domain\DeviceCapabilities.cs" Link="Domain\DeviceCapabilities.cs" />
+    <Compile Include="..\..\PanoramaControl\Domain\PanoramaPlan.cs" Link="Domain\PanoramaPlan.cs" />
+    <Compile Include="..\..\PanoramaControl\Domain\SphericalGeometry.cs" Link="Domain\SphericalGeometry.cs" />
+    <Compile Include="..\..\PanoramaControl\Domain\RunState.cs" Link="Domain\RunState.cs" />
+    <Compile Include="..\..\PanoramaControl\Domain\RunEvent.cs" Link="Domain\RunEvent.cs" />
+    <Compile Include="..\..\PanoramaControl\Domain\RunSegment.cs" Link="Domain\RunSegment.cs" />
+    <Compile Include="..\..\PanoramaControl\Domain\RunSegmentResolver.cs" Link="Domain\RunSegmentResolver.cs" />
+    <Compile Include="..\..\PanoramaControl\Protocol\V2\Crc16Ccitt.cs" Link="Protocol\Crc16Ccitt.cs" />
+    <Compile Include="..\..\PanoramaControl\Protocol\V2\CommandResult.cs" Link="Protocol\CommandResult.cs" />
+    <Compile Include="..\..\PanoramaControl\Protocol\V2\ProtocolFrame.cs" Link="Protocol\ProtocolFrame.cs" />
+    <Compile Include="..\..\PanoramaControl\Protocol\V2\ProtocolFrameCodec.cs" Link="Protocol\ProtocolFrameCodec.cs" />
+    <Compile Include="..\..\PanoramaControl\Protocol\V2\ProtocolV2Client.cs" Link="Protocol\ProtocolV2Client.cs" />
+    <Compile Include="..\..\PanoramaControl\Application\PanoramaSessionController*.cs" Link="Application/%(Filename)%(Extension)" />
+    <Compile Include="..\..\PanoramaControl\Application\DiagnosticSessionLog.cs" Link="Application/DiagnosticSessionLog.cs" />
+    <Compile Include="..\..\PanoramaControl\Application\RunArchive.cs" Link="Application/RunArchive.cs" />
+    <Compile Include="..\..\PanoramaControl\Domain\SessionFeatures.cs" Link="Domain/SessionFeatures.cs" />
+    <Compile Include="..\..\PanoramaControl\Domain\DeviceInfo.cs" Link="Domain/DeviceInfo.cs" />
+    <Compile Include="..\..\PanoramaControl\Domain\DeviceStatus.cs" Link="Domain/DeviceStatus.cs" />
+    <Compile Include="..\..\PanoramaControl\Domain\DeviceDiagnostics.cs" Link="Domain/DeviceDiagnostics.cs" />
+    <Compile Include="..\..\PanoramaControl\Communication\ConnectionState.cs" Link="Communication/ConnectionState.cs" />
+  </ItemGroup>
+</Project>

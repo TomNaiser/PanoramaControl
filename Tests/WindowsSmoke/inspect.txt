@@ -1,0 +1,9 @@
+PanoDuinoControl 2.4.70 (2026-10-17), Protokoll 2, ARDUINO_NANO_R4.
+Supportprotokoll für Diagnose/KI-Support: D:/KI-Repository/PanoramaSoftware/PanoramaControlGitRepo/Tests/WindowsSmoke/hardware\PanoramaSupport_20261017_135809_860.log
+FW-Trace #1 @5003 ms: BOOT, Bild 0, IDLE/NONE, Ziel 0/0 mdeg, Ist 0/0 mdeg, Fehler 0/0 mdeg, stabil 0.
+FW-Trace #2 @69905 ms: SESSION_OPENED, Bild 0, IDLE/NONE, Ziel 0/0 mdeg, Ist 55400/6000 mdeg, Fehler -55400/-6000 mdeg, stabil 0.
+FW-Trace #3 @323609 ms: SESSION_OPENED, Bild 0, IDLE/NONE, Ziel 0/0 mdeg, Ist 55400/6000 mdeg, Fehler -55400/-6000 mdeg, stabil 0.
+Firmware-Trace vollständig: neueste Sequenz 3, übertragen 3, ältere überschriebene Ereignisse 0.
+CONNECTED firmware=2.4.70 boot=132 state=Idle run=0 actual=55503/6086
+CAPABILITIES pan=-180.000°..180.000° tilt=-45.000°..30.000° runTempo=2000 manual=True jog=True warning=500/500 config=24
+INSPECT OK fresh=True reason= log=D:/KI-Repository/PanoramaSoftware/PanoramaControlGitRepo/Tests/WindowsSmoke/hardware\PanoramaSupport_20261017_135809_860.log

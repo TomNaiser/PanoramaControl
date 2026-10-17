@@ -1,0 +1,213 @@
+PanoDuinoControl 2.4.70 (2026-10-17), Protokoll 2, ARDUINO_NANO_R4.
+Automatischer Support-Snapshot gespeichert.
+PanoDuinoControl 2.4.70 (2026-10-17), Protokoll 2, ARDUINO_NANO_R4.
+FW-Trace #18 @368239 ms: PLAN_LOADED, Bild 0, PLAN_READY/NONE, Ziel 55600/5900 mdeg, Ist 55700/5800 mdeg, Fehler -100/100 mdeg, stabil 13.
+FW-Trace #19 @368334 ms: STOPPED, Bild 0, STOPPED/NONE, Ziel 55500/5900 mdeg, Ist 55600/5800 mdeg, Fehler -100/100 mdeg, stabil 0.
+FW-Trace #20 @554092 ms: SESSION_OPENED, Bild 0, STOPPED/NONE, Ziel 55500/5900 mdeg, Ist 55600/5800 mdeg, Fehler -100/100 mdeg, stabil 0.
+FW-Trace #21 @555039 ms: MANUAL_MOVE_STARTED, Bild 0, IDLE/NONE, Ziel 56600/5800 mdeg, Ist 55700/5800 mdeg, Fehler 900/0 mdeg, stabil 0.
+FW-Trace #22 @556869 ms: MANUAL_MOVE_REACHED, Bild 0, IDLE/NONE, Ziel 56700/5900 mdeg, Ist 56900/5900 mdeg, Fehler -200/0 mdeg, stabil 13.
+FW-Trace #23 @557331 ms: MANUAL_MOVE_STARTED, Bild 0, IDLE/NONE, Ziel 55700/5800 mdeg, Ist 56900/5800 mdeg, Fehler -1200/0 mdeg, stabil 0.
+FW-Trace #24 @561406 ms: MANUAL_MOVE_REACHED, Bild 0, IDLE/NONE, Ziel 55600/5800 mdeg, Ist 55800/5800 mdeg, Fehler -200/0 mdeg, stabil 13.
+FW-Trace #25 @561696 ms: MANUAL_MOVE_STARTED, Bild 0, IDLE/NONE, Ziel 55700/6700 mdeg, Ist 55800/5800 mdeg, Fehler -100/900 mdeg, stabil 0.
+FW-Trace #26 @565619 ms: MANUAL_MOVE_REACHED, Bild 0, IDLE/NONE, Ziel 55700/6800 mdeg, Ist 55800/6800 mdeg, Fehler -100/0 mdeg, stabil 13.
+FW-Trace #27 @565877 ms: MANUAL_MOVE_STARTED, Bild 0, IDLE/NONE, Ziel 55700/5900 mdeg, Ist 55800/6800 mdeg, Fehler -100/-900 mdeg, stabil 0.
+FW-Trace #28 @569834 ms: STOPPED, Bild 0, STOPPED/NONE, Ziel 55700/5700 mdeg, Ist 55800/5200 mdeg, Fehler -100/500 mdeg, stabil 0.
+FW-Trace #29 @646427 ms: SESSION_OPENED, Bild 0, STOPPED/NONE, Ziel 55700/5700 mdeg, Ist 55800/5200 mdeg, Fehler -100/500 mdeg, stabil 0.
+FW-Trace #30 @712760 ms: SESSION_OPENED, Bild 0, STOPPED/NONE, Ziel 55700/5700 mdeg, Ist 55800/5300 mdeg, Fehler -100/400 mdeg, stabil 0.
+Firmware-Trace vollständig: neueste Sequenz 30, übertragen 13, ältere überschriebene Ereignisse 0.
+Supportprotokoll für Diagnose/KI-Support: D:/KI-Repository/PanoramaSoftware/PanoramaControlGitRepo/Tests/WindowsSmoke/hardware\PanoramaSupport_20261017_140441_788.log
+FW-Trace #18 @368239 ms: PLAN_LOADED, Bild 0, PLAN_READY/NONE, Ziel 55600/5900 mdeg, Ist 55700/5800 mdeg, Fehler -100/100 mdeg, stabil 13.
+FW-Trace #19 @368334 ms: STOPPED, Bild 0, STOPPED/NONE, Ziel 55500/5900 mdeg, Ist 55600/5800 mdeg, Fehler -100/100 mdeg, stabil 0.
+FW-Trace #20 @554092 ms: SESSION_OPENED, Bild 0, STOPPED/NONE, Ziel 55500/5900 mdeg, Ist 55600/5800 mdeg, Fehler -100/100 mdeg, stabil 0.
+FW-Trace #21 @555039 ms: MANUAL_MOVE_STARTED, Bild 0, IDLE/NONE, Ziel 56600/5800 mdeg, Ist 55700/5800 mdeg, Fehler 900/0 mdeg, stabil 0.
+FW-Trace #22 @556869 ms: MANUAL_MOVE_REACHED, Bild 0, IDLE/NONE, Ziel 56700/5900 mdeg, Ist 56900/5900 mdeg, Fehler -200/0 mdeg, stabil 13.
+FW-Trace #23 @557331 ms: MANUAL_MOVE_STARTED, Bild 0, IDLE/NONE, Ziel 55700/5800 mdeg, Ist 56900/5800 mdeg, Fehler -1200/0 mdeg, stabil 0.
+FW-Trace #24 @561406 ms: MANUAL_MOVE_REACHED, Bild 0, IDLE/NONE, Ziel 55600/5800 mdeg, Ist 55800/5800 mdeg, Fehler -200/0 mdeg, stabil 13.
+FW-Trace #25 @561696 ms: MANUAL_MOVE_STARTED, Bild 0, IDLE/NONE, Ziel 55700/6700 mdeg, Ist 55800/5800 mdeg, Fehler -100/900 mdeg, stabil 0.
+FW-Trace #26 @565619 ms: MANUAL_MOVE_REACHED, Bild 0, IDLE/NONE, Ziel 55700/6800 mdeg, Ist 55800/6800 mdeg, Fehler -100/0 mdeg, stabil 13.
+FW-Trace #27 @565877 ms: MANUAL_MOVE_STARTED, Bild 0, IDLE/NONE, Ziel 55700/5900 mdeg, Ist 55800/6800 mdeg, Fehler -100/-900 mdeg, stabil 0.
+FW-Trace #28 @569834 ms: STOPPED, Bild 0, STOPPED/NONE, Ziel 55700/5700 mdeg, Ist 55800/5200 mdeg, Fehler -100/500 mdeg, stabil 0.
+FW-Trace #29 @646427 ms: SESSION_OPENED, Bild 0, STOPPED/NONE, Ziel 55700/5700 mdeg, Ist 55800/5200 mdeg, Fehler -100/500 mdeg, stabil 0.
+FW-Trace #30 @712760 ms: SESSION_OPENED, Bild 0, STOPPED/NONE, Ziel 55700/5700 mdeg, Ist 55800/5300 mdeg, Fehler -100/400 mdeg, stabil 0.
+Firmware-Trace vollständig: neueste Sequenz 30, übertragen 13, ältere überschriebene Ereignisse 0.
+CONNECTED firmware=2.4.70 boot=132 state=Stopped run=0 actual=55854/5317
+CAPABILITIES pan=-180.000°..180.000° tilt=-45.000°..30.000° runTempo=2000 manual=True jog=True warning=500/500 config=24
+PHASE acknowledge previous manual failure and check readiness
+PanoDuinoControl: 6 IDLE
+RECOVERY OK reason=
+PHASE held arrows: each axis 1 second at 2 degrees/second
+JOG axis=0 stopped=CANCELLED actual=57.898°/5.295°
+JOG axis=1 stopped=CANCELLED actual=57.898°/7.141°
+PHASE camera pulse
+CAPTURE 0/2 measured=True
+PHASE raster, pause, timing, repeat column, resume
+PanoDuinoControl: 8 PLAN_READY
+PanoDuinoControl: 9 RUNNING
+CAPTURE 450574042/1 measured=True
+PanoDuinoControl: 11 PAUSE_PENDING
+CAPTURE 450574042/2 measured=True
+PanoDuinoControl: 13 PAUSED
+PanoDuinoControl: 14 RUNNING
+CAPTURE 450574042/3 measured=True
+CAPTURE 450574042/4 measured=True
+CAPTURE 450574042/5 measured=True
+CAPTURE 450574042/6 measured=True
+PanoDuinoControl: 19 COMPLETED
+RASTER OK captures=6
+Automatischer Support-Snapshot gespeichert.
+PanoDuinoControl 2.4.70 (2026-10-17), Protokoll 2, ARDUINO_NANO_R4.
+FW-Trace #32 @717422 ms: PLAN_LOADED, Bild 0, PLAN_READY/NONE, Ziel 55700/5800 mdeg, Ist 57800/7200 mdeg, Fehler -2100/-1400 mdeg, stabil 0.
+FW-Trace #33 @717641 ms: RUN_STARTED, Bild 0, RUNNING/SELECT_TARGET, Ziel 55600/5800 mdeg, Ist 57800/7200 mdeg, Fehler -2200/-1400 mdeg, stabil 0.
+FW-Trace #34 @717641 ms: TARGET_SELECTED, Bild 0, RUNNING/MOVING, Ziel 57800/7100 mdeg, Ist 57800/7200 mdeg, Fehler 0/-100 mdeg, stabil 0.
+FW-Trace #35 @717650 ms: TARGET_REACHED, Bild 0, RUNNING/SETTLING, Ziel 57800/7200 mdeg, Ist 57800/7300 mdeg, Fehler 0/-100 mdeg, stabil 0.
+FW-Trace #36 @718150 ms: TRIGGER_STARTED, Bild 0, RUNNING/TRIGGER_ACTIVE, Ziel 57800/7100 mdeg, Ist 57800/7200 mdeg, Fehler 0/-100 mdeg, stabil 0.
+FW-Trace #37 @718486 ms: IMAGE_COMMITTED, Bild 0, RUNNING/COMMIT_IMAGE, Ziel 57800/7100 mdeg, Ist 57800/7200 mdeg, Fehler 0/-100 mdeg, stabil 0.
+FW-Trace #38 @718490 ms: TARGET_SELECTED, Bild 1, RUNNING/MOVING, Ziel 57800/8000 mdeg, Ist 57800/7200 mdeg, Fehler 0/800 mdeg, stabil 0.
+FW-Trace #39 @719086 ms: PAUSE_PENDING, Bild 1, PAUSE_PENDING/MOVING, Ziel 57800/8000 mdeg, Ist 57800/7200 mdeg, Fehler 0/800 mdeg, stabil 0.
+PanoDuinoControl: 20 IDLE
+PHASE spherical 2 bands
+FW-Trace #40 @720607 ms: TARGET_REACHED, Bild 1, PAUSE_PENDING/SETTLING, Ziel 57800/8100 mdeg, Ist 57800/8200 mdeg, Fehler 0/-100 mdeg, stabil 0.
+FW-Trace #41 @721107 ms: TRIGGER_STARTED, Bild 1, PAUSE_PENDING/TRIGGER_ACTIVE, Ziel 57900/8100 mdeg, Ist 57900/8200 mdeg, Fehler 0/-100 mdeg, stabil 0.
+FW-Trace #42 @721438 ms: IMAGE_COMMITTED, Bild 1, PAUSE_PENDING/COMMIT_IMAGE, Ziel 57800/8100 mdeg, Ist 57800/8100 mdeg, Fehler 0/0 mdeg, stabil 0.
+FW-Trace #43 @721438 ms: PAUSED, Bild 2, PAUSED/NONE, Ziel 57800/8100 mdeg, Ist 57800/8100 mdeg, Fehler 0/0 mdeg, stabil 0.
+FW-Trace #44 @721647 ms: REWOUND, Bild 0, PAUSED/NONE, Ziel 57800/8200 mdeg, Ist 57800/8200 mdeg, Fehler 0/0 mdeg, stabil 0.
+FW-Trace #45 @721717 ms: RESUMED, Bild 0, RUNNING/SELECT_TARGET, Ziel 57800/8100 mdeg, Ist 57800/8200 mdeg, Fehler 0/-100 mdeg, stabil 0.
+FW-Trace #46 @721717 ms: TARGET_SELECTED, Bild 0, RUNNING/MOVING, Ziel 57800/7100 mdeg, Ist 57800/8200 mdeg, Fehler 0/-1100 mdeg, stabil 0.
+FW-Trace #47 @723226 ms: TARGET_REACHED, Bild 0, RUNNING/SETTLING, Ziel 57800/7100 mdeg, Ist 57800/6800 mdeg, Fehler 0/300 mdeg, stabil 0.
+FW-Trace #48 @723626 ms: TRIGGER_STARTED, Bild 0, RUNNING/TRIGGER_ACTIVE, Ziel 57800/7000 mdeg, Ist 57800/6800 mdeg, Fehler 0/200 mdeg, stabil 0.
+FW-Trace #49 @723960 ms: IMAGE_COMMITTED, Bild 0, RUNNING/COMMIT_IMAGE, Ziel 57900/7000 mdeg, Ist 57900/6800 mdeg, Fehler 0/200 mdeg, stabil 0.
+FW-Trace #50 @723964 ms: TARGET_SELECTED, Bild 1, RUNNING/MOVING, Ziel 57900/8000 mdeg, Ist 57900/6800 mdeg, Fehler 0/1200 mdeg, stabil 0.
+FW-Trace #51 @725705 ms: TARGET_REACHED, Bild 1, RUNNING/SETTLING, Ziel 57800/8100 mdeg, Ist 57800/8100 mdeg, Fehler 0/0 mdeg, stabil 0.
+FW-Trace #52 @725958 ms: SETTLING_LOST, Bild 1, RUNNING/MOVING, Ziel 57800/8200 mdeg, Ist 57800/8200 mdeg, Fehler 0/0 mdeg, stabil 0.
+FW-Trace #53 @726252 ms: TARGET_REACHED, Bild 1, RUNNING/SETTLING, Ziel 57900/8100 mdeg, Ist 57900/8100 mdeg, Fehler 0/0 mdeg, stabil 0.
+FW-Trace #54 @726652 ms: TRIGGER_STARTED, Bild 1, RUNNING/TRIGGER_ACTIVE, Ziel 57800/8100 mdeg, Ist 57800/8100 mdeg, Fehler 0/0 mdeg, stabil 0.
+FW-Trace #55 @726987 ms: IMAGE_COMMITTED, Bild 1, RUNNING/COMMIT_IMAGE, Ziel 57900/8100 mdeg, Ist 57900/8100 mdeg, Fehler 0/0 mdeg, stabil 0.
+FW-Trace #56 @726990 ms: TARGET_SELECTED, Bild 2, RUNNING/MOVING, Ziel 56900/7200 mdeg, Ist 57900/8100 mdeg, Fehler -1000/-900 mdeg, stabil 0.
+FW-Trace #57 @728350 ms: TARGET_REACHED, Bild 2, RUNNING/SETTLING, Ziel 56900/7100 mdeg, Ist 57100/7100 mdeg, Fehler -200/0 mdeg, stabil 0.
+FW-Trace #58 @729107 ms: TRIGGER_STARTED, Bild 2, RUNNING/TRIGGER_ACTIVE, Ziel 56900/7100 mdeg, Ist 57100/7100 mdeg, Fehler -200/0 mdeg, stabil 0.
+FW-Trace #59 @729437 ms: IMAGE_COMMITTED, Bild 2, RUNNING/COMMIT_IMAGE, Ziel 56900/7100 mdeg, Ist 57100/7100 mdeg, Fehler -200/0 mdeg, stabil 0.
+PanoDuinoControl: 21 PLAN_READY
+FW-Trace #60 @729440 ms: TARGET_SELECTED, Bild 3, RUNNING/MOVING, Ziel 56900/8000 mdeg, Ist 57100/7100 mdeg, Fehler -200/900 mdeg, stabil 0.
+FW-Trace #61 @731041 ms: TARGET_REACHED, Bild 3, RUNNING/SETTLING, Ziel 56900/8200 mdeg, Ist 57100/8200 mdeg, Fehler -200/0 mdeg, stabil 0.
+FW-Trace #62 @731441 ms: TRIGGER_STARTED, Bild 3, RUNNING/TRIGGER_ACTIVE, Ziel 56900/8200 mdeg, Ist 57100/8200 mdeg, Fehler -200/0 mdeg, stabil 0.
+FW-Trace #63 @731772 ms: IMAGE_COMMITTED, Bild 3, RUNNING/COMMIT_IMAGE, Ziel 56900/8100 mdeg, Ist 57100/8100 mdeg, Fehler -200/0 mdeg, stabil 0.
+FW-Trace #64 @731772 ms: COMPLETED, Bild 4, COMPLETED/NONE, Ziel 56900/8100 mdeg, Ist 57100/8100 mdeg, Fehler -200/0 mdeg, stabil 0.
+Firmware-Trace vollständig: neueste Sequenz 64, übertragen 33, ältere überschriebene Ereignisse 0.
+PanoDuinoControl: 22 RUNNING
+CAPTURE 450574043/1 measured=True
+CAPTURE 450574043/2 measured=True
+CAPTURE 450574043/3 measured=True
+CAPTURE 450574043/4 measured=True
+PanoDuinoControl: 27 COMPLETED
+SPHERICAL OK captures=4
+Automatischer Support-Snapshot gespeichert.
+PanoDuinoControl 2.4.70 (2026-10-17), Protokoll 2, ARDUINO_NANO_R4.
+FW-Trace #65 @732549 ms: PLAN_LOADED, Bild 0, PLAN_READY/NONE, Ziel 56900/8200 mdeg, Ist 57100/8200 mdeg, Fehler -200/0 mdeg, stabil 0.
+FW-Trace #66 @733163 ms: RUN_STARTED, Bild 0, RUNNING/SELECT_TARGET, Ziel 56900/8200 mdeg, Ist 57100/8200 mdeg, Fehler -200/0 mdeg, stabil 0.
+FW-Trace #67 @733163 ms: TARGET_SELECTED, Bild 0, RUNNING/MOVING, Ziel 57800/7200 mdeg, Ist 57100/8200 mdeg, Fehler 700/-1000 mdeg, stabil 0.
+FW-Trace #68 @735667 ms: TARGET_REACHED, Bild 0, RUNNING/SETTLING, Ziel 57800/7000 mdeg, Ist 57800/6900 mdeg, Fehler 0/100 mdeg, stabil 0.
+FW-Trace #69 @735835 ms: SETTLING_LOST, Bild 0, RUNNING/MOVING, Ziel 57800/7000 mdeg, Ist 57800/7000 mdeg, Fehler 0/0 mdeg, stabil 0.
+FW-Trace #70 @736171 ms: TARGET_REACHED, Bild 0, RUNNING/SETTLING, Ziel 57800/7100 mdeg, Ist 57800/6900 mdeg, Fehler 0/200 mdeg, stabil 0.
+FW-Trace #71 @736339 ms: SETTLING_LOST, Bild 0, RUNNING/MOVING, Ziel 57900/7000 mdeg, Ist 57900/6800 mdeg, Fehler 0/200 mdeg, stabil 0.
+FW-Trace #72 @736549 ms: TARGET_REACHED, Bild 0, RUNNING/SETTLING, Ziel 57900/7100 mdeg, Ist 57900/7000 mdeg, Fehler 0/100 mdeg, stabil 0.
+FW-Trace #73 @736949 ms: TRIGGER_STARTED, Bild 0, RUNNING/TRIGGER_ACTIVE, Ziel 57900/7100 mdeg, Ist 58000/7000 mdeg, Fehler -100/100 mdeg, stabil 0.
+FW-Trace #74 @737281 ms: IMAGE_COMMITTED, Bild 0, RUNNING/COMMIT_IMAGE, Ziel 57900/7000 mdeg, Ist 57900/6900 mdeg, Fehler 0/100 mdeg, stabil 0.
+FW-Trace #75 @737285 ms: TARGET_SELECTED, Bild 1, RUNNING/MOVING, Ziel 56900/7000 mdeg, Ist 57900/6900 mdeg, Fehler -1000/100 mdeg, stabil 0.
+PanoDuinoControl: 28 IDLE
+PHASE timelapse
+FW-Trace #76 @738369 ms: TARGET_REACHED, Bild 1, RUNNING/SETTLING, Ziel 56800/7000 mdeg, Ist 56800/6900 mdeg, Fehler 0/100 mdeg, stabil 0.
+FW-Trace #77 @738770 ms: TRIGGER_STARTED, Bild 1, RUNNING/TRIGGER_ACTIVE, Ziel 56800/7000 mdeg, Ist 56800/6900 mdeg, Fehler 0/100 mdeg, stabil 0.
+FW-Trace #78 @739100 ms: IMAGE_COMMITTED, Bild 1, RUNNING/COMMIT_IMAGE, Ziel 56800/7100 mdeg, Ist 56800/7000 mdeg, Fehler 0/100 mdeg, stabil 0.
+FW-Trace #79 @739104 ms: TARGET_SELECTED, Bild 2, RUNNING/MOVING, Ziel 57800/8100 mdeg, Ist 56800/7000 mdeg, Fehler 1000/1100 mdeg, stabil 0.
+FW-Trace #80 @740508 ms: TARGET_REACHED, Bild 2, RUNNING/SETTLING, Ziel 57800/8000 mdeg, Ist 57800/8000 mdeg, Fehler 0/0 mdeg, stabil 0.
+FW-Trace #81 @740909 ms: TRIGGER_STARTED, Bild 2, RUNNING/TRIGGER_ACTIVE, Ziel 57800/8100 mdeg, Ist 57800/8000 mdeg, Fehler 0/100 mdeg, stabil 0.
+FW-Trace #82 @741239 ms: IMAGE_COMMITTED, Bild 2, RUNNING/COMMIT_IMAGE, Ziel 57900/8100 mdeg, Ist 57900/8000 mdeg, Fehler 0/100 mdeg, stabil 0.
+FW-Trace #83 @741243 ms: TARGET_SELECTED, Bild 3, RUNNING/MOVING, Ziel 56900/8100 mdeg, Ist 57900/8000 mdeg, Fehler -1000/100 mdeg, stabil 0.
+FW-Trace #84 @742327 ms: TARGET_REACHED, Bild 3, RUNNING/SETTLING, Ziel 56900/8100 mdeg, Ist 56900/8000 mdeg, Fehler 0/100 mdeg, stabil 0.
+FW-Trace #85 @742496 ms: SETTLING_LOST, Bild 3, RUNNING/MOVING, Ziel 56800/8000 mdeg, Ist 56800/7900 mdeg, Fehler 0/100 mdeg, stabil 0.
+FW-Trace #86 @742601 ms: TARGET_REACHED, Bild 3, RUNNING/SETTLING, Ziel 56800/8000 mdeg, Ist 56800/8000 mdeg, Fehler 0/0 mdeg, stabil 0.
+FW-Trace #87 @743001 ms: TRIGGER_STARTED, Bild 3, RUNNING/TRIGGER_ACTIVE, Ziel 56900/8000 mdeg, Ist 56900/8000 mdeg, Fehler 0/0 mdeg, stabil 0.
+FW-Trace #88 @743331 ms: IMAGE_COMMITTED, Bild 3, RUNNING/COMMIT_IMAGE, Ziel 56800/8100 mdeg, Ist 56800/8000 mdeg, Fehler 0/100 mdeg, stabil 0.
+FW-Trace #89 @743331 ms: COMPLETED, Bild 4, COMPLETED/NONE, Ziel 56800/8100 mdeg, Ist 56800/8000 mdeg, Fehler 0/100 mdeg, stabil 0.
+Firmware-Trace vollständig: neueste Sequenz 89, übertragen 25, ältere überschriebene Ereignisse 0.
+PHASE disconnect policy CONTINUE
+PanoDuinoControl: 29 PLAN_READY
+PanoDuinoControl: 30 RUNNING
+PanoDuinoControl 2.4.70 (2026-10-17), Protokoll 2, ARDUINO_NANO_R4.
+CAPTURE 450574045/1 measured=True
+Supportprotokoll für Diagnose/KI-Support: D:/KI-Repository/PanoramaSoftware/PanoramaControlGitRepo/Tests/WindowsSmoke/hardware\PanoramaSupport_20261017_140441_788.log
+FW-Trace #90 @745330 ms: PLAN_LOADED, Bild 0, PLAN_READY/NONE, Ziel 56900/8000 mdeg, Ist 56900/7900 mdeg, Fehler 0/100 mdeg, stabil 0.
+FW-Trace #91 @745511 ms: RUN_STARTED, Bild 0, RUNNING/SELECT_TARGET, Ziel 56800/8100 mdeg, Ist 56800/8000 mdeg, Fehler 0/100 mdeg, stabil 0.
+FW-Trace #92 @745511 ms: TARGET_SELECTED, Bild 0, RUNNING/MOVING, Ziel 57800/7200 mdeg, Ist 56800/8000 mdeg, Fehler 1000/-800 mdeg, stabil 0.
+FW-Trace #93 @746966 ms: TARGET_REACHED, Bild 0, RUNNING/SETTLING, Ziel 57800/7100 mdeg, Ist 57700/6900 mdeg, Fehler 100/200 mdeg, stabil 0.
+FW-Trace #94 @747396 ms: SESSION_OPENED, Bild 0, RUNNING/SETTLING, Ziel 57800/7100 mdeg, Ist 57800/6800 mdeg, Fehler 0/300 mdeg, stabil 0.
+FW-Trace #95 @747469 ms: TRIGGER_STARTED, Bild 0, RUNNING/TRIGGER_ACTIVE, Ziel 57800/7100 mdeg, Ist 57700/6800 mdeg, Fehler 100/300 mdeg, stabil 0.
+FW-Trace #96 @747805 ms: IMAGE_COMMITTED, Bild 0, RUNNING/COMMIT_IMAGE, Ziel 57800/7100 mdeg, Ist 57700/6800 mdeg, Fehler 100/300 mdeg, stabil 0.
+FW-Trace #97 @747808 ms: TARGET_SELECTED, Bild 1, RUNNING/MOVING, Ziel 57800/8100 mdeg, Ist 57700/6800 mdeg, Fehler 100/1300 mdeg, stabil 0.
+Firmware-Trace vollständig: neueste Sequenz 97, übertragen 8, ältere überschriebene Ereignisse 0.
+CAPTURE 450574045/2 measured=True
+CAPTURE 450574045/3 measured=True
+CAPTURE 450574045/4 measured=True
+PanoDuinoControl: 35 COMPLETED
+CONTINUE OK captures=4
+Automatischer Support-Snapshot gespeichert.
+PanoDuinoControl 2.4.70 (2026-10-17), Protokoll 2, ARDUINO_NANO_R4.
+FW-Trace #90 @745330 ms: PLAN_LOADED, Bild 0, PLAN_READY/NONE, Ziel 56900/8000 mdeg, Ist 56900/7900 mdeg, Fehler 0/100 mdeg, stabil 0.
+FW-Trace #91 @745511 ms: RUN_STARTED, Bild 0, RUNNING/SELECT_TARGET, Ziel 56800/8100 mdeg, Ist 56800/8000 mdeg, Fehler 0/100 mdeg, stabil 0.
+FW-Trace #92 @745511 ms: TARGET_SELECTED, Bild 0, RUNNING/MOVING, Ziel 57800/7200 mdeg, Ist 56800/8000 mdeg, Fehler 1000/-800 mdeg, stabil 0.
+FW-Trace #93 @746966 ms: TARGET_REACHED, Bild 0, RUNNING/SETTLING, Ziel 57800/7100 mdeg, Ist 57700/6900 mdeg, Fehler 100/200 mdeg, stabil 0.
+FW-Trace #94 @747396 ms: SESSION_OPENED, Bild 0, RUNNING/SETTLING, Ziel 57800/7100 mdeg, Ist 57800/6800 mdeg, Fehler 0/300 mdeg, stabil 0.
+FW-Trace #95 @747469 ms: TRIGGER_STARTED, Bild 0, RUNNING/TRIGGER_ACTIVE, Ziel 57800/7100 mdeg, Ist 57700/6800 mdeg, Fehler 100/300 mdeg, stabil 0.
+FW-Trace #96 @747805 ms: IMAGE_COMMITTED, Bild 0, RUNNING/COMMIT_IMAGE, Ziel 57800/7100 mdeg, Ist 57700/6800 mdeg, Fehler 100/300 mdeg, stabil 0.
+FW-Trace #97 @747808 ms: TARGET_SELECTED, Bild 1, RUNNING/MOVING, Ziel 57800/8100 mdeg, Ist 57700/6800 mdeg, Fehler 100/1300 mdeg, stabil 0.
+FW-Trace #98 @749721 ms: TARGET_REACHED, Bild 1, RUNNING/SETTLING, Ziel 57800/8000 mdeg, Ist 57800/7900 mdeg, Fehler 0/100 mdeg, stabil 0.
+PanoDuinoControl: 36 IDLE
+PHASE disconnect policy STOP
+FW-Trace #99 @750221 ms: TRIGGER_STARTED, Bild 1, RUNNING/TRIGGER_ACTIVE, Ziel 57800/8000 mdeg, Ist 57700/7900 mdeg, Fehler 100/100 mdeg, stabil 0.
+FW-Trace #100 @750552 ms: IMAGE_COMMITTED, Bild 1, RUNNING/COMMIT_IMAGE, Ziel 57800/8000 mdeg, Ist 57700/7900 mdeg, Fehler 100/100 mdeg, stabil 0.
+FW-Trace #101 @750555 ms: TARGET_SELECTED, Bild 2, RUNNING/MOVING, Ziel 56900/7100 mdeg, Ist 57700/7900 mdeg, Fehler -800/-800 mdeg, stabil 0.
+FW-Trace #102 @752257 ms: TARGET_REACHED, Bild 2, RUNNING/SETTLING, Ziel 56900/7000 mdeg, Ist 57000/6800 mdeg, Fehler -100/200 mdeg, stabil 0.
+FW-Trace #103 @752446 ms: SETTLING_LOST, Bild 2, RUNNING/MOVING, Ziel 56900/7000 mdeg, Ist 57000/6900 mdeg, Fehler -100/100 mdeg, stabil 0.
+FW-Trace #104 @752658 ms: TARGET_REACHED, Bild 2, RUNNING/SETTLING, Ziel 56900/7000 mdeg, Ist 57000/6800 mdeg, Fehler -100/200 mdeg, stabil 0.
+FW-Trace #105 @752847 ms: SETTLING_LOST, Bild 2, RUNNING/MOVING, Ziel 56900/7000 mdeg, Ist 57000/6700 mdeg, Fehler -100/300 mdeg, stabil 0.
+FW-Trace #106 @753057 ms: TARGET_REACHED, Bild 2, RUNNING/SETTLING, Ziel 56900/7000 mdeg, Ist 56900/6800 mdeg, Fehler 0/200 mdeg, stabil 0.
+FW-Trace #107 @753557 ms: TRIGGER_STARTED, Bild 2, RUNNING/TRIGGER_ACTIVE, Ziel 56900/7000 mdeg, Ist 57000/6800 mdeg, Fehler -100/200 mdeg, stabil 0.
+FW-Trace #108 @753887 ms: IMAGE_COMMITTED, Bild 2, RUNNING/COMMIT_IMAGE, Ziel 56900/7000 mdeg, Ist 57000/6800 mdeg, Fehler -100/200 mdeg, stabil 0.
+FW-Trace #109 @753891 ms: TARGET_SELECTED, Bild 3, RUNNING/MOVING, Ziel 56900/8000 mdeg, Ist 57000/6800 mdeg, Fehler -100/1200 mdeg, stabil 0.
+FW-Trace #110 @755318 ms: TARGET_REACHED, Bild 3, RUNNING/SETTLING, Ziel 56900/8000 mdeg, Ist 56900/8000 mdeg, Fehler 0/0 mdeg, stabil 0.
+FW-Trace #111 @755818 ms: TRIGGER_STARTED, Bild 3, RUNNING/TRIGGER_ACTIVE, Ziel 56900/8000 mdeg, Ist 57000/8000 mdeg, Fehler -100/0 mdeg, stabil 0.
+FW-Trace #112 @756149 ms: IMAGE_COMMITTED, Bild 3, RUNNING/COMMIT_IMAGE, Ziel 56900/8100 mdeg, Ist 57000/8100 mdeg, Fehler -100/0 mdeg, stabil 0.
+FW-Trace #113 @756149 ms: COMPLETED, Bild 4, COMPLETED/NONE, Ziel 56900/8100 mdeg, Ist 57000/8100 mdeg, Fehler -100/0 mdeg, stabil 0.
+Firmware-Trace vollständig: neueste Sequenz 113, übertragen 24, ältere überschriebene Ereignisse 0.
+PanoDuinoControl: 37 PLAN_READY
+PanoDuinoControl: 38 RUNNING
+PanoDuinoControl 2.4.70 (2026-10-17), Protokoll 2, ARDUINO_NANO_R4.
+Automatischer Support-Snapshot gespeichert.
+PanoDuinoControl 2.4.70 (2026-10-17), Protokoll 2, ARDUINO_NANO_R4.
+FW-Trace #114 @757081 ms: PLAN_LOADED, Bild 0, PLAN_READY/NONE, Ziel 56900/8100 mdeg, Ist 57000/8100 mdeg, Fehler -100/0 mdeg, stabil 0.
+FW-Trace #115 @757495 ms: RUN_STARTED, Bild 0, RUNNING/SELECT_TARGET, Ziel 56900/8000 mdeg, Ist 57000/8000 mdeg, Fehler -100/0 mdeg, stabil 0.
+FW-Trace #116 @757495 ms: TARGET_SELECTED, Bild 0, RUNNING/MOVING, Ziel 57800/7100 mdeg, Ist 57000/8000 mdeg, Fehler 800/-900 mdeg, stabil 0.
+FW-Trace #117 @757864 ms: STOPPED, Bild 0, STOPPED/NONE, Ziel 57800/7100 mdeg, Ist 56900/8000 mdeg, Fehler 900/-900 mdeg, stabil 0.
+FW-Trace #118 @760325 ms: SESSION_OPENED, Bild 0, STOPPED/NONE, Ziel 57800/7100 mdeg, Ist 57000/8000 mdeg, Fehler 800/-900 mdeg, stabil 0.
+Firmware-Trace vollständig: neueste Sequenz 118, übertragen 5, ältere überschriebene Ereignisse 0.
+Supportprotokoll für Diagnose/KI-Support: D:/KI-Repository/PanoramaSoftware/PanoramaControlGitRepo/Tests/WindowsSmoke/hardware\PanoramaSupport_20261017_140441_788.log
+STOP POLICY OK state=Stopped error=CONNECTION_TIMEOUT
+FW-Trace #114 @757081 ms: PLAN_LOADED, Bild 0, PLAN_READY/NONE, Ziel 56900/8100 mdeg, Ist 57000/8100 mdeg, Fehler -100/0 mdeg, stabil 0.
+FW-Trace #115 @757495 ms: RUN_STARTED, Bild 0, RUNNING/SELECT_TARGET, Ziel 56900/8000 mdeg, Ist 57000/8000 mdeg, Fehler -100/0 mdeg, stabil 0.
+FW-Trace #116 @757495 ms: TARGET_SELECTED, Bild 0, RUNNING/MOVING, Ziel 57800/7100 mdeg, Ist 57000/8000 mdeg, Fehler 800/-900 mdeg, stabil 0.
+FW-Trace #117 @757864 ms: STOPPED, Bild 0, STOPPED/NONE, Ziel 57800/7100 mdeg, Ist 56900/8000 mdeg, Fehler 900/-900 mdeg, stabil 0.
+FW-Trace #118 @760325 ms: SESSION_OPENED, Bild 0, STOPPED/NONE, Ziel 57800/7100 mdeg, Ist 57000/8000 mdeg, Fehler 800/-900 mdeg, stabil 0.
+Firmware-Trace vollständig: neueste Sequenz 118, übertragen 5, ältere überschriebene Ereignisse 0.
+PanoDuinoControl: 40 IDLE
+PanoDuinoControl: 41 STOPPED
+HARDWARE OK final=Stopped run=0 capturesReceived=15 log=D:/KI-Repository/PanoramaSoftware/PanoramaControlGitRepo/Tests/WindowsSmoke/hardware\PanoramaSupport_20261017_140441_788.log
+Support-Snapshot fehlgeschlagen: Durch Not-Stop verworfen; Befehl nicht wiederholen.
+PanoDuinoControl 2.4.70 (2026-10-17), Protokoll 2, ARDUINO_NANO_R4.
+FW-Trace #114 @757081 ms: PLAN_LOADED, Bild 0, PLAN_READY/NONE, Ziel 56900/8100 mdeg, Ist 57000/8100 mdeg, Fehler -100/0 mdeg, stabil 0.
+FW-Trace #115 @757495 ms: RUN_STARTED, Bild 0, RUNNING/SELECT_TARGET, Ziel 56900/8000 mdeg, Ist 57000/8000 mdeg, Fehler -100/0 mdeg, stabil 0.
+FW-Trace #116 @757495 ms: TARGET_SELECTED, Bild 0, RUNNING/MOVING, Ziel 57800/7100 mdeg, Ist 57000/8000 mdeg, Fehler 800/-900 mdeg, stabil 0.
+FW-Trace #117 @757864 ms: STOPPED, Bild 0, STOPPED/NONE, Ziel 57800/7100 mdeg, Ist 56900/8000 mdeg, Fehler 900/-900 mdeg, stabil 0.
+FW-Trace #118 @760325 ms: SESSION_OPENED, Bild 0, STOPPED/NONE, Ziel 57800/7100 mdeg, Ist 57000/8000 mdeg, Fehler 800/-900 mdeg, stabil 0.
+FW-Trace #119 @761283 ms: STOPPED, Bild 0, STOPPED/NONE, Ziel 57800/7100 mdeg, Ist 57000/8000 mdeg, Fehler 800/-900 mdeg, stabil 0.
+Firmware-Trace vollständig: neueste Sequenz 119, übertragen 6, ältere überschriebene Ereignisse 0.
+FINAL STOP CONFIRMED state=Stopped run=0

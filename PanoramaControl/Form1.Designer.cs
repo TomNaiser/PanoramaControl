@@ -33,12 +33,13 @@ namespace PanoramaControlApp
             this.components = new System.ComponentModel.Container();
             this.SetStartPointButton = new System.Windows.Forms.Button();
             this.SetEndPointButton = new System.Windows.Forms.Button();
-            this.MoveLeftButton = new System.Windows.Forms.Button();
-            this.MoveRightButton = new System.Windows.Forms.Button();
-            this.MoveUpButton = new System.Windows.Forms.Button();
-            this.MoveDownButton = new System.Windows.Forms.Button();
+            this.MoveLeftButton = new NavigationArrowButton();
+            this.MoveRightButton = new NavigationArrowButton();
+            this.MoveUpButton = new NavigationArrowButton();
+            this.MoveDownButton = new NavigationArrowButton();
             this.ConnectButton = new System.Windows.Forms.Button();
             this.DisconnectButton = new System.Windows.Forms.Button();
+            this.ConnectionStatusLabel = new System.Windows.Forms.Label();
             this.StartButton = new System.Windows.Forms.Button();
             this.PauseButton = new System.Windows.Forms.Button();
             this.StopButton = new System.Windows.Forms.Button();
@@ -53,6 +54,11 @@ namespace PanoramaControlApp
             this.FOVxLabel = new System.Windows.Forms.Label();
             this.FOVyLabel = new System.Windows.Forms.Label();
             this.CurPosLabel = new System.Windows.Forms.Label();
+            this.RasterPosLabel = new System.Windows.Forms.Label();
+            this.RasterColumnTitleLabel = new System.Windows.Forms.Label();
+            this.RasterColumnValueLabel = new System.Windows.Forms.Label();
+            this.RasterRowTitleLabel = new System.Windows.Forms.Label();
+            this.RasterRowValueLabel = new System.Windows.Forms.Label();
             this.ShutterTestButton = new System.Windows.Forms.Button();
             this.ExpDelayTextBox = new System.Windows.Forms.TextBox();
             this.ExposureDelayLabel = new System.Windows.Forms.Label();
@@ -78,19 +84,17 @@ namespace PanoramaControlApp
             this.PosRTB = new System.Windows.Forms.RichTextBox();
             this.TimeLapse = new System.Windows.Forms.TabControl();
             this.NavtabPage = new System.Windows.Forms.TabPage();
-            this.AccTestLabel = new System.Windows.Forms.Label();
             this.ClearPanelButton = new System.Windows.Forms.Button();
-            this.AYlabel = new System.Windows.Forms.Label();
-            this.AXlabel = new System.Windows.Forms.Label();
-            this.Ylabel = new System.Windows.Forms.Label();
-            this.Xlabel = new System.Windows.Forms.Label();
-            this.panel1 = new System.Windows.Forms.Panel();
+            this.panel1 = new BufferedPanel();
             this.NavtabPage2 = new System.Windows.Forms.TabPage();
             this.TestButton = new System.Windows.Forms.Button();
             this.panel2 = new System.Windows.Forms.Panel();
             this.DebugtabPage = new System.Windows.Forms.TabPage();
             this.GetMuControllerStatusBtn = new System.Windows.Forms.Button();
             this.tabPage1 = new System.Windows.Forms.TabPage();
+            this.TimelapseStateLabel = new System.Windows.Forms.Label();
+            this.ShutterPulseCountLabel = new System.Windows.Forms.Label();
+            this.LastShutterPulseLabel = new System.Windows.Forms.Label();
             this.buttonStopTimeLapse = new System.Windows.Forms.Button();
             this.button1TimelapseStart = new System.Windows.Forms.Button();
             this.label1TLPeriod = new System.Windows.Forms.Label();
@@ -105,8 +109,8 @@ namespace PanoramaControlApp
             this.CamSelCombolabel = new System.Windows.Forms.Label();
             this.ContinueButton = new System.Windows.Forms.Button();
             this.ColBackButton = new System.Windows.Forms.Button();
+            this.ColForwardButton = new System.Windows.Forms.Button();
             this.VibrationCheckBox = new System.Windows.Forms.CheckBox();
-            this.timer1 = new System.Windows.Forms.Timer(this.components);
             this.UseFlashResponseCheckBox = new System.Windows.Forms.CheckBox();
             this.ControlTriggerDurationCheckBox = new System.Windows.Forms.CheckBox();
             this.CamTriggerDurationTextBox = new System.Windows.Forms.TextBox();
@@ -207,12 +211,21 @@ namespace PanoramaControlApp
             this.DisconnectButton.UseVisualStyleBackColor = true;
             this.DisconnectButton.Click += new System.EventHandler(this.DisconnectButton_Click);
             // 
+            // ConnectionStatusLabel
+            // 
+            this.ConnectionStatusLabel.AutoSize = true;
+            this.ConnectionStatusLabel.Location = new System.Drawing.Point(195, 65);
+            this.ConnectionStatusLabel.Name = "ConnectionStatusLabel";
+            this.ConnectionStatusLabel.Size = new System.Drawing.Size(132, 16);
+            this.ConnectionStatusLabel.TabIndex = 64;
+            this.ConnectionStatusLabel.Text = "Status: Disconnected";
+            // 
             // StartButton
             // 
-            this.StartButton.Location = new System.Drawing.Point(708, 220);
+            this.StartButton.Location = new System.Drawing.Point(691, 220);
             this.StartButton.Margin = new System.Windows.Forms.Padding(4);
             this.StartButton.Name = "StartButton";
-            this.StartButton.Size = new System.Drawing.Size(95, 38);
+            this.StartButton.Size = new System.Drawing.Size(80, 38);
             this.StartButton.TabIndex = 8;
             this.StartButton.Text = "Start";
             this.StartButton.UseVisualStyleBackColor = true;
@@ -221,10 +234,10 @@ namespace PanoramaControlApp
             // PauseButton
             // 
             this.PauseButton.Enabled = false;
-            this.PauseButton.Location = new System.Drawing.Point(833, 220);
+            this.PauseButton.Location = new System.Drawing.Point(779, 220);
             this.PauseButton.Margin = new System.Windows.Forms.Padding(4);
             this.PauseButton.Name = "PauseButton";
-            this.PauseButton.Size = new System.Drawing.Size(99, 38);
+            this.PauseButton.Size = new System.Drawing.Size(80, 38);
             this.PauseButton.TabIndex = 9;
             this.PauseButton.Text = "Pause";
             this.PauseButton.UseVisualStyleBackColor = true;
@@ -233,10 +246,10 @@ namespace PanoramaControlApp
             // StopButton
             // 
             this.StopButton.Enabled = false;
-            this.StopButton.Location = new System.Drawing.Point(889, 265);
+            this.StopButton.Location = new System.Drawing.Point(970, 220);
             this.StopButton.Margin = new System.Windows.Forms.Padding(4);
             this.StopButton.Name = "StopButton";
-            this.StopButton.Size = new System.Drawing.Size(89, 37);
+            this.StopButton.Size = new System.Drawing.Size(80, 38);
             this.StopButton.TabIndex = 10;
             this.StopButton.Text = "Stop";
             this.StopButton.UseVisualStyleBackColor = true;
@@ -257,7 +270,7 @@ namespace PanoramaControlApp
             this.FocalLengthLabel.Location = new System.Drawing.Point(408, 10);
             this.FocalLengthLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.FocalLengthLabel.Name = "FocalLengthLabel";
-            this.FocalLengthLabel.Size = new System.Drawing.Size(126, 17);
+            this.FocalLengthLabel.Size = new System.Drawing.Size(117, 16);
             this.FocalLengthLabel.TabIndex = 12;
             this.FocalLengthLabel.Text = "Focal Length (mm)";
             // 
@@ -276,7 +289,7 @@ namespace PanoramaControlApp
             this.OverlapLabel.Location = new System.Drawing.Point(451, 39);
             this.OverlapLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.OverlapLabel.Name = "OverlapLabel";
-            this.OverlapLabel.Size = new System.Drawing.Size(84, 17);
+            this.OverlapLabel.Size = new System.Drawing.Size(78, 16);
             this.OverlapLabel.TabIndex = 14;
             this.OverlapLabel.Text = "Overlap (%)";
             // 
@@ -295,7 +308,7 @@ namespace PanoramaControlApp
             this.ChipWidthLabel.Location = new System.Drawing.Point(416, 74);
             this.ChipWidthLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.ChipWidthLabel.Name = "ChipWidthLabel";
-            this.ChipWidthLabel.Size = new System.Drawing.Size(112, 17);
+            this.ChipWidthLabel.Size = new System.Drawing.Size(104, 16);
             this.ChipWidthLabel.TabIndex = 16;
             this.ChipWidthLabel.Text = "Chip Width (mm)";
             // 
@@ -314,7 +327,7 @@ namespace PanoramaControlApp
             this.ChipHeightLabell.Location = new System.Drawing.Point(413, 102);
             this.ChipHeightLabell.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.ChipHeightLabell.Name = "ChipHeightLabell";
-            this.ChipHeightLabell.Size = new System.Drawing.Size(117, 17);
+            this.ChipHeightLabell.Size = new System.Drawing.Size(109, 16);
             this.ChipHeightLabell.TabIndex = 18;
             this.ChipHeightLabell.Text = "Chip Height (mm)";
             // 
@@ -324,7 +337,7 @@ namespace PanoramaControlApp
             this.FOVxLabel.Location = new System.Drawing.Point(472, 132);
             this.FOVxLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.FOVxLabel.Name = "FOVxLabel";
-            this.FOVxLabel.Size = new System.Drawing.Size(68, 17);
+            this.FOVxLabel.Size = new System.Drawing.Size(59, 16);
             this.FOVxLabel.TabIndex = 19;
             this.FOVxLabel.Text = "FOV  x   °";
             // 
@@ -334,7 +347,7 @@ namespace PanoramaControlApp
             this.FOVyLabel.Location = new System.Drawing.Point(472, 158);
             this.FOVyLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.FOVyLabel.Name = "FOVyLabel";
-            this.FOVyLabel.Size = new System.Drawing.Size(69, 17);
+            this.FOVyLabel.Size = new System.Drawing.Size(60, 16);
             this.FOVyLabel.TabIndex = 20;
             this.FOVyLabel.Text = "FOV  y   °";
             // 
@@ -344,9 +357,54 @@ namespace PanoramaControlApp
             this.CurPosLabel.Location = new System.Drawing.Point(722, 174);
             this.CurPosLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.CurPosLabel.Name = "CurPosLabel";
-            this.CurPosLabel.Size = new System.Drawing.Size(226, 17);
+            this.CurPosLabel.Size = new System.Drawing.Size(191, 16);
             this.CurPosLabel.TabIndex = 21;
             this.CurPosLabel.Text = "Current Position  x:                     y: ";
+            // 
+            // RasterPosLabel
+            // 
+            this.RasterPosLabel.AutoSize = true;
+            this.RasterPosLabel.Location = new System.Drawing.Point(722, 195);
+            this.RasterPosLabel.Name = "RasterPosLabel";
+            this.RasterPosLabel.Size = new System.Drawing.Size(90, 16);
+            this.RasterPosLabel.TabIndex = 59;
+            this.RasterPosLabel.Text = "Raster Position";
+            // 
+            // RasterColumnTitleLabel
+            // 
+            this.RasterColumnTitleLabel.AutoSize = true;
+            this.RasterColumnTitleLabel.Location = new System.Drawing.Point(842, 195);
+            this.RasterColumnTitleLabel.Name = "RasterColumnTitleLabel";
+            this.RasterColumnTitleLabel.Size = new System.Drawing.Size(25, 16);
+            this.RasterColumnTitleLabel.TabIndex = 60;
+            this.RasterColumnTitleLabel.Text = "col:";
+            // 
+            // RasterColumnValueLabel
+            // 
+            this.RasterColumnValueLabel.AutoSize = true;
+            this.RasterColumnValueLabel.Location = new System.Drawing.Point(874, 195);
+            this.RasterColumnValueLabel.Name = "RasterColumnValueLabel";
+            this.RasterColumnValueLabel.Size = new System.Drawing.Size(23, 16);
+            this.RasterColumnValueLabel.TabIndex = 61;
+            this.RasterColumnValueLabel.Text = "----";
+            // 
+            // RasterRowTitleLabel
+            // 
+            this.RasterRowTitleLabel.AutoSize = true;
+            this.RasterRowTitleLabel.Location = new System.Drawing.Point(936, 195);
+            this.RasterRowTitleLabel.Name = "RasterRowTitleLabel";
+            this.RasterRowTitleLabel.Size = new System.Drawing.Size(26, 16);
+            this.RasterRowTitleLabel.TabIndex = 62;
+            this.RasterRowTitleLabel.Text = "row:";
+            // 
+            // RasterRowValueLabel
+            // 
+            this.RasterRowValueLabel.AutoSize = true;
+            this.RasterRowValueLabel.Location = new System.Drawing.Point(970, 195);
+            this.RasterRowValueLabel.Name = "RasterRowValueLabel";
+            this.RasterRowValueLabel.Size = new System.Drawing.Size(23, 16);
+            this.RasterRowValueLabel.TabIndex = 63;
+            this.RasterRowValueLabel.Text = "----";
             // 
             // ShutterTestButton
             // 
@@ -374,7 +432,7 @@ namespace PanoramaControlApp
             this.ExposureDelayLabel.Location = new System.Drawing.Point(187, 245);
             this.ExposureDelayLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.ExposureDelayLabel.Name = "ExposureDelayLabel";
-            this.ExposureDelayLabel.Size = new System.Drawing.Size(128, 17);
+            this.ExposureDelayLabel.Size = new System.Drawing.Size(121, 16);
             this.ExposureDelayLabel.TabIndex = 24;
             this.ExposureDelayLabel.Text = "Exposure Delay (s)";
             // 
@@ -393,7 +451,7 @@ namespace PanoramaControlApp
             this.VibrationDelayLabel.Location = new System.Drawing.Point(212, 214);
             this.VibrationDelayLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.VibrationDelayLabel.Name = "VibrationDelayLabel";
-            this.VibrationDelayLabel.Size = new System.Drawing.Size(103, 17);
+            this.VibrationDelayLabel.Size = new System.Drawing.Size(98, 16);
             this.VibrationDelayLabel.TabIndex = 26;
             this.VibrationDelayLabel.Text = "Move Delay (s)";
             // 
@@ -403,7 +461,7 @@ namespace PanoramaControlApp
             this.NumXLabel.Location = new System.Drawing.Point(415, 184);
             this.NumXLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.NumXLabel.Name = "NumXLabel";
-            this.NumXLabel.Size = new System.Drawing.Size(109, 17);
+            this.NumXLabel.Size = new System.Drawing.Size(100, 16);
             this.NumXLabel.TabIndex = 27;
             this.NumXLabel.Text = "# of images in X";
             // 
@@ -413,7 +471,7 @@ namespace PanoramaControlApp
             this.NumYLabel.Location = new System.Drawing.Point(415, 217);
             this.NumYLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.NumYLabel.Name = "NumYLabel";
-            this.NumYLabel.Size = new System.Drawing.Size(109, 17);
+            this.NumYLabel.Size = new System.Drawing.Size(101, 16);
             this.NumYLabel.TabIndex = 28;
             this.NumYLabel.Text = "# of images in Y";
             // 
@@ -441,7 +499,7 @@ namespace PanoramaControlApp
             this.StartPointLabel.Location = new System.Drawing.Point(223, 108);
             this.StartPointLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.StartPointLabel.Name = "StartPointLabel";
-            this.StartPointLabel.Size = new System.Drawing.Size(0, 17);
+            this.StartPointLabel.Size = new System.Drawing.Size(0, 16);
             this.StartPointLabel.TabIndex = 32;
             // 
             // EndPointLabel
@@ -450,7 +508,7 @@ namespace PanoramaControlApp
             this.EndPointLabel.Location = new System.Drawing.Point(221, 160);
             this.EndPointLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.EndPointLabel.Name = "EndPointLabel";
-            this.EndPointLabel.Size = new System.Drawing.Size(0, 17);
+            this.EndPointLabel.Size = new System.Drawing.Size(0, 16);
             this.EndPointLabel.TabIndex = 33;
             // 
             // ServoPosPanLabel
@@ -459,7 +517,7 @@ namespace PanoramaControlApp
             this.ServoPosPanLabel.Location = new System.Drawing.Point(847, 174);
             this.ServoPosPanLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.ServoPosPanLabel.Name = "ServoPosPanLabel";
-            this.ServoPosPanLabel.Size = new System.Drawing.Size(28, 17);
+            this.ServoPosPanLabel.Size = new System.Drawing.Size(23, 16);
             this.ServoPosPanLabel.TabIndex = 35;
             this.ServoPosPanLabel.Text = "----";
             // 
@@ -469,7 +527,7 @@ namespace PanoramaControlApp
             this.ServoPosTiltLabel.Location = new System.Drawing.Point(946, 174);
             this.ServoPosTiltLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.ServoPosTiltLabel.Name = "ServoPosTiltLabel";
-            this.ServoPosTiltLabel.Size = new System.Drawing.Size(28, 17);
+            this.ServoPosTiltLabel.Size = new System.Drawing.Size(23, 16);
             this.ServoPosTiltLabel.TabIndex = 37;
             this.ServoPosTiltLabel.Text = "----";
             // 
@@ -479,7 +537,7 @@ namespace PanoramaControlApp
             this.StartPosXlabel.Location = new System.Drawing.Point(203, 112);
             this.StartPosXlabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.StartPosXlabel.Name = "StartPosXlabel";
-            this.StartPosXlabel.Size = new System.Drawing.Size(28, 17);
+            this.StartPosXlabel.Size = new System.Drawing.Size(23, 16);
             this.StartPosXlabel.TabIndex = 38;
             this.StartPosXlabel.Text = "----";
             // 
@@ -489,7 +547,7 @@ namespace PanoramaControlApp
             this.StartPosYlabel.Location = new System.Drawing.Point(291, 112);
             this.StartPosYlabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.StartPosYlabel.Name = "StartPosYlabel";
-            this.StartPosYlabel.Size = new System.Drawing.Size(28, 17);
+            this.StartPosYlabel.Size = new System.Drawing.Size(23, 16);
             this.StartPosYlabel.TabIndex = 39;
             this.StartPosYlabel.Text = "----";
             // 
@@ -499,7 +557,7 @@ namespace PanoramaControlApp
             this.EndPosXlabel.Location = new System.Drawing.Point(204, 163);
             this.EndPosXlabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.EndPosXlabel.Name = "EndPosXlabel";
-            this.EndPosXlabel.Size = new System.Drawing.Size(28, 17);
+            this.EndPosXlabel.Size = new System.Drawing.Size(23, 16);
             this.EndPosXlabel.TabIndex = 40;
             this.EndPosXlabel.Text = "----";
             // 
@@ -509,7 +567,7 @@ namespace PanoramaControlApp
             this.EndPosYlabel.Location = new System.Drawing.Point(291, 164);
             this.EndPosYlabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.EndPosYlabel.Name = "EndPosYlabel";
-            this.EndPosYlabel.Size = new System.Drawing.Size(28, 17);
+            this.EndPosYlabel.Size = new System.Drawing.Size(23, 16);
             this.EndPosYlabel.TabIndex = 41;
             this.EndPosYlabel.Text = "----";
             // 
@@ -524,13 +582,15 @@ namespace PanoramaControlApp
             // 
             // scanModeComboBox
             // 
+            this.scanModeComboBox.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this.scanModeComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.scanModeComboBox.FormattingEnabled = true;
             this.scanModeComboBox.Items.AddRange(new object[] {
             "Columns with CR",
             "Rows with CR",
             "Rows (meander)",
             "Columns (meander)",
-            "Spherical"});
+            "Spherical (Teilkugel)"});
             this.scanModeComboBox.Location = new System.Drawing.Point(416, 286);
             this.scanModeComboBox.Margin = new System.Windows.Forms.Padding(4);
             this.scanModeComboBox.Name = "scanModeComboBox";
@@ -543,7 +603,7 @@ namespace PanoramaControlApp
             this.selCOMPortLabel.Location = new System.Drawing.Point(195, 14);
             this.selCOMPortLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.selCOMPortLabel.Name = "selCOMPortLabel";
-            this.selCOMPortLabel.Size = new System.Drawing.Size(110, 17);
+            this.selCOMPortLabel.Size = new System.Drawing.Size(103, 16);
             this.selCOMPortLabel.TabIndex = 44;
             this.selCOMPortLabel.Text = "select COM Port";
             // 
@@ -553,7 +613,7 @@ namespace PanoramaControlApp
             this.SelScanModeLabel.Location = new System.Drawing.Point(414, 265);
             this.SelScanModeLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.SelScanModeLabel.Name = "SelScanModeLabel";
-            this.SelScanModeLabel.Size = new System.Drawing.Size(120, 17);
+            this.SelScanModeLabel.Size = new System.Drawing.Size(115, 16);
             this.SelScanModeLabel.TabIndex = 45;
             this.SelScanModeLabel.Text = "select Scan Mode";
             // 
@@ -591,12 +651,7 @@ namespace PanoramaControlApp
             // 
             // NavtabPage
             // 
-            this.NavtabPage.Controls.Add(this.AccTestLabel);
             this.NavtabPage.Controls.Add(this.ClearPanelButton);
-            this.NavtabPage.Controls.Add(this.AYlabel);
-            this.NavtabPage.Controls.Add(this.AXlabel);
-            this.NavtabPage.Controls.Add(this.Ylabel);
-            this.NavtabPage.Controls.Add(this.Xlabel);
             this.NavtabPage.Controls.Add(this.panel1);
             this.NavtabPage.Location = new System.Drawing.Point(4, 25);
             this.NavtabPage.Margin = new System.Windows.Forms.Padding(4);
@@ -606,16 +661,6 @@ namespace PanoramaControlApp
             this.NavtabPage.TabIndex = 0;
             this.NavtabPage.Text = "Navigation";
             this.NavtabPage.UseVisualStyleBackColor = true;
-            // 
-            // AccTestLabel
-            // 
-            this.AccTestLabel.AutoSize = true;
-            this.AccTestLabel.Location = new System.Drawing.Point(499, 17);
-            this.AccTestLabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.AccTestLabel.Name = "AccTestLabel";
-            this.AccTestLabel.Size = new System.Drawing.Size(31, 17);
-            this.AccTestLabel.TabIndex = 6;
-            this.AccTestLabel.Text = "Acc";
             // 
             // ClearPanelButton
             // 
@@ -627,46 +672,6 @@ namespace PanoramaControlApp
             this.ClearPanelButton.Text = "Clear Panel";
             this.ClearPanelButton.UseVisualStyleBackColor = true;
             this.ClearPanelButton.Click += new System.EventHandler(this.ClearPanelButton_Click);
-            // 
-            // AYlabel
-            // 
-            this.AYlabel.AutoSize = true;
-            this.AYlabel.Location = new System.Drawing.Point(343, 16);
-            this.AYlabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.AYlabel.Name = "AYlabel";
-            this.AYlabel.Size = new System.Drawing.Size(28, 17);
-            this.AYlabel.TabIndex = 4;
-            this.AYlabel.Text = "----";
-            // 
-            // AXlabel
-            // 
-            this.AXlabel.AutoSize = true;
-            this.AXlabel.Location = new System.Drawing.Point(256, 16);
-            this.AXlabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.AXlabel.Name = "AXlabel";
-            this.AXlabel.Size = new System.Drawing.Size(28, 17);
-            this.AXlabel.TabIndex = 3;
-            this.AXlabel.Text = "----";
-            // 
-            // Ylabel
-            // 
-            this.Ylabel.AutoSize = true;
-            this.Ylabel.Location = new System.Drawing.Point(129, 16);
-            this.Ylabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.Ylabel.Name = "Ylabel";
-            this.Ylabel.Size = new System.Drawing.Size(28, 17);
-            this.Ylabel.TabIndex = 2;
-            this.Ylabel.Text = "----";
-            // 
-            // Xlabel
-            // 
-            this.Xlabel.AutoSize = true;
-            this.Xlabel.Location = new System.Drawing.Point(48, 16);
-            this.Xlabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.Xlabel.Name = "Xlabel";
-            this.Xlabel.Size = new System.Drawing.Size(28, 17);
-            this.Xlabel.TabIndex = 1;
-            this.Xlabel.Text = "----";
             // 
             // panel1
             // 
@@ -735,6 +740,9 @@ namespace PanoramaControlApp
             // 
             // tabPage1
             // 
+            this.tabPage1.Controls.Add(this.TimelapseStateLabel);
+            this.tabPage1.Controls.Add(this.ShutterPulseCountLabel);
+            this.tabPage1.Controls.Add(this.LastShutterPulseLabel);
             this.tabPage1.Controls.Add(this.buttonStopTimeLapse);
             this.tabPage1.Controls.Add(this.button1TimelapseStart);
             this.tabPage1.Controls.Add(this.label1TLPeriod);
@@ -747,6 +755,33 @@ namespace PanoramaControlApp
             this.tabPage1.TabIndex = 3;
             this.tabPage1.Text = "TimeLapse";
             this.tabPage1.UseVisualStyleBackColor = true;
+            // 
+            // TimelapseStateLabel
+            // 
+            this.TimelapseStateLabel.AutoSize = true;
+            this.TimelapseStateLabel.Location = new System.Drawing.Point(55, 149);
+            this.TimelapseStateLabel.Name = "TimelapseStateLabel";
+            this.TimelapseStateLabel.Size = new System.Drawing.Size(85, 16);
+            this.TimelapseStateLabel.TabIndex = 4;
+            this.TimelapseStateLabel.Text = "Status: Bereit";
+            // 
+            // ShutterPulseCountLabel
+            // 
+            this.ShutterPulseCountLabel.AutoSize = true;
+            this.ShutterPulseCountLabel.Location = new System.Drawing.Point(55, 179);
+            this.ShutterPulseCountLabel.Name = "ShutterPulseCountLabel";
+            this.ShutterPulseCountLabel.Size = new System.Drawing.Size(113, 16);
+            this.ShutterPulseCountLabel.TabIndex = 5;
+            this.ShutterPulseCountLabel.Text = "Shutter-Pulse: 0";
+            // 
+            // LastShutterPulseLabel
+            // 
+            this.LastShutterPulseLabel.AutoSize = true;
+            this.LastShutterPulseLabel.Location = new System.Drawing.Point(55, 209);
+            this.LastShutterPulseLabel.Name = "LastShutterPulseLabel";
+            this.LastShutterPulseLabel.Size = new System.Drawing.Size(105, 16);
+            this.LastShutterPulseLabel.TabIndex = 6;
+            this.LastShutterPulseLabel.Text = "Letzter Puls: --";
             // 
             // buttonStopTimeLapse
             // 
@@ -776,7 +811,7 @@ namespace PanoramaControlApp
             this.label1TLPeriod.Location = new System.Drawing.Point(51, 33);
             this.label1TLPeriod.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.label1TLPeriod.Name = "label1TLPeriod";
-            this.label1TLPeriod.Size = new System.Drawing.Size(138, 17);
+            this.label1TLPeriod.Size = new System.Drawing.Size(132, 16);
             this.label1TLPeriod.TabIndex = 1;
             this.label1TLPeriod.Text = "Timelapse period (s)";
             // 
@@ -802,7 +837,7 @@ namespace PanoramaControlApp
             this.TestTabPage.Padding = new System.Windows.Forms.Padding(3);
             this.TestTabPage.Size = new System.Drawing.Size(1024, 307);
             this.TestTabPage.TabIndex = 4;
-            this.TestTabPage.Text = "Test";
+            this.TestTabPage.Text = "Antrieb && Grenzen";
             this.TestTabPage.UseVisualStyleBackColor = true;
             // 
             // ApplySpeedTestButton
@@ -836,7 +871,7 @@ namespace PanoramaControlApp
             this.SpeedYLabel.AutoSize = true;
             this.SpeedYLabel.Location = new System.Drawing.Point(14, 71);
             this.SpeedYLabel.Name = "SpeedYLabel";
-            this.SpeedYLabel.Size = new System.Drawing.Size(138, 17);
+            this.SpeedYLabel.Size = new System.Drawing.Size(124, 16);
             this.SpeedYLabel.TabIndex = 1;
             this.SpeedYLabel.Text = "Speed Y [0.75 .. 1.0]";
             // 
@@ -845,7 +880,7 @@ namespace PanoramaControlApp
             this.SpeedXLabel.AutoSize = true;
             this.SpeedXLabel.Location = new System.Drawing.Point(15, 34);
             this.SpeedXLabel.Name = "SpeedXLabel";
-            this.SpeedXLabel.Size = new System.Drawing.Size(138, 17);
+            this.SpeedXLabel.Size = new System.Drawing.Size(123, 16);
             this.SpeedXLabel.TabIndex = 0;
             this.SpeedXLabel.Text = "Speed X [0.75 .. 1.0]";
             // 
@@ -853,18 +888,18 @@ namespace PanoramaControlApp
             // 
             this.CamSelectCombo.FormattingEnabled = true;
             this.CamSelectCombo.Items.AddRange(new object[] {
-            "FZ200 24x",
-            "FZ200 12x",
-            "G9 12x",
             "SonyA7RII 400mm",
             "SonyA7RII 200mm",
             "SonyA7RII 135mm",
             "SonyA7RII 35mm",
-            "SonyA7RII 28mm"});
+            "SonyA7RII 28mm",
+            "FZ200 24x",
+            "FZ200 12x",
+            "G9 12x"});
             this.CamSelectCombo.Location = new System.Drawing.Point(36, 214);
             this.CamSelectCombo.Margin = new System.Windows.Forms.Padding(4);
             this.CamSelectCombo.Name = "CamSelectCombo";
-            this.CamSelectCombo.Size = new System.Drawing.Size(135, 24);
+            this.CamSelectCombo.Size = new System.Drawing.Size(156, 24);
             this.CamSelectCombo.TabIndex = 50;
             this.CamSelectCombo.SelectedIndexChanged += new System.EventHandler(this.CamSelectCombo_SelectedIndexChanged);
             // 
@@ -874,32 +909,45 @@ namespace PanoramaControlApp
             this.CamSelCombolabel.Location = new System.Drawing.Point(32, 194);
             this.CamSelCombolabel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.CamSelCombolabel.Name = "CamSelCombolabel";
-            this.CamSelCombolabel.Size = new System.Drawing.Size(100, 17);
+            this.CamSelCombolabel.Size = new System.Drawing.Size(96, 16);
             this.CamSelCombolabel.TabIndex = 51;
             this.CamSelCombolabel.Text = "Select Camera";
             // 
             // ContinueButton
             // 
             this.ContinueButton.Enabled = false;
-            this.ContinueButton.Location = new System.Drawing.Point(949, 220);
+            this.ContinueButton.Location = new System.Drawing.Point(867, 220);
             this.ContinueButton.Margin = new System.Windows.Forms.Padding(4);
             this.ContinueButton.Name = "ContinueButton";
-            this.ContinueButton.Size = new System.Drawing.Size(100, 38);
+            this.ContinueButton.Size = new System.Drawing.Size(95, 38);
             this.ContinueButton.TabIndex = 53;
             this.ContinueButton.Text = "Continue";
             this.ContinueButton.UseVisualStyleBackColor = true;
             this.ContinueButton.Click += new System.EventHandler(this.ContinueButton_Click);
             // 
             // ColBackButton
-            // 
+            //
+            this.ColBackButton.Enabled = false;
             this.ColBackButton.Location = new System.Drawing.Point(691, 270);
             this.ColBackButton.Margin = new System.Windows.Forms.Padding(4);
             this.ColBackButton.Name = "ColBackButton";
-            this.ColBackButton.Size = new System.Drawing.Size(136, 36);
+            this.ColBackButton.Size = new System.Drawing.Size(171, 36);
             this.ColBackButton.TabIndex = 54;
-            this.ColBackButton.Text = "One ColN back";
+            this.ColBackButton.Text = "One Column Back";
             this.ColBackButton.UseVisualStyleBackColor = true;
             this.ColBackButton.Click += new System.EventHandler(this.ColBackButton_Click);
+            // 
+            // ColForwardButton
+            // 
+            this.ColForwardButton.Enabled = false;
+            this.ColForwardButton.Location = new System.Drawing.Point(870, 270);
+            this.ColForwardButton.Margin = new System.Windows.Forms.Padding(4);
+            this.ColForwardButton.Name = "ColForwardButton";
+            this.ColForwardButton.Size = new System.Drawing.Size(180, 36);
+            this.ColForwardButton.TabIndex = 65;
+            this.ColForwardButton.Text = "One Column Forward";
+            this.ColForwardButton.UseVisualStyleBackColor = true;
+            this.ColForwardButton.Click += new System.EventHandler(this.ColForwardButton_Click);
             // 
             // VibrationCheckBox
             // 
@@ -907,22 +955,19 @@ namespace PanoramaControlApp
             this.VibrationCheckBox.Location = new System.Drawing.Point(36, 244);
             this.VibrationCheckBox.Margin = new System.Windows.Forms.Padding(4);
             this.VibrationCheckBox.Name = "VibrationCheckBox";
-            this.VibrationCheckBox.Size = new System.Drawing.Size(135, 21);
+            this.VibrationCheckBox.Size = new System.Drawing.Size(128, 20);
             this.VibrationCheckBox.TabIndex = 55;
             this.VibrationCheckBox.Text = "Vibration Sensor";
             this.VibrationCheckBox.UseVisualStyleBackColor = true;
             this.VibrationCheckBox.CheckedChanged += new System.EventHandler(this.VibrationCheckBox_CheckedChanged);
             // 
-            // timer1
-            // 
-            this.timer1.Tick += new System.EventHandler(this.Timer1_Tick);
             // 
             // UseFlashResponseCheckBox
             // 
             this.UseFlashResponseCheckBox.AutoSize = true;
             this.UseFlashResponseCheckBox.Location = new System.Drawing.Point(36, 298);
             this.UseFlashResponseCheckBox.Name = "UseFlashResponseCheckBox";
-            this.UseFlashResponseCheckBox.Size = new System.Drawing.Size(161, 21);
+            this.UseFlashResponseCheckBox.Size = new System.Drawing.Size(156, 20);
             this.UseFlashResponseCheckBox.TabIndex = 56;
             this.UseFlashResponseCheckBox.Text = "Use Flash Response";
             this.UseFlashResponseCheckBox.UseVisualStyleBackColor = true;
@@ -933,7 +978,7 @@ namespace PanoramaControlApp
             this.ControlTriggerDurationCheckBox.AutoSize = true;
             this.ControlTriggerDurationCheckBox.Location = new System.Drawing.Point(36, 271);
             this.ControlTriggerDurationCheckBox.Name = "ControlTriggerDurationCheckBox";
-            this.ControlTriggerDurationCheckBox.Size = new System.Drawing.Size(277, 21);
+            this.ControlTriggerDurationCheckBox.Size = new System.Drawing.Size(257, 20);
             this.ControlTriggerDurationCheckBox.TabIndex = 57;
             this.ControlTriggerDurationCheckBox.Text = "Control Camera Trigger Duration (s) =>";
             this.ControlTriggerDurationCheckBox.UseVisualStyleBackColor = true;
@@ -958,6 +1003,7 @@ namespace PanoramaControlApp
             this.Controls.Add(this.UseFlashResponseCheckBox);
             this.Controls.Add(this.VibrationCheckBox);
             this.Controls.Add(this.ColBackButton);
+            this.Controls.Add(this.ColForwardButton);
             this.Controls.Add(this.ContinueButton);
             this.Controls.Add(this.CamSelCombolabel);
             this.Controls.Add(this.CamSelectCombo);
@@ -972,6 +1018,11 @@ namespace PanoramaControlApp
             this.Controls.Add(this.StartPosXlabel);
             this.Controls.Add(this.ServoPosTiltLabel);
             this.Controls.Add(this.ServoPosPanLabel);
+            this.Controls.Add(this.RasterRowValueLabel);
+            this.Controls.Add(this.RasterRowTitleLabel);
+            this.Controls.Add(this.RasterColumnValueLabel);
+            this.Controls.Add(this.RasterColumnTitleLabel);
+            this.Controls.Add(this.RasterPosLabel);
             this.Controls.Add(this.EndPointLabel);
             this.Controls.Add(this.StartPointLabel);
             this.Controls.Add(this.NumYTextBox);
@@ -998,6 +1049,7 @@ namespace PanoramaControlApp
             this.Controls.Add(this.PauseButton);
             this.Controls.Add(this.StartButton);
             this.Controls.Add(this.DisconnectButton);
+            this.Controls.Add(this.ConnectionStatusLabel);
             this.Controls.Add(this.ConnectButton);
             this.Controls.Add(this.MoveDownButton);
             this.Controls.Add(this.MoveUpButton);
@@ -1007,7 +1059,7 @@ namespace PanoramaControlApp
             this.Controls.Add(this.SetStartPointButton);
             this.Margin = new System.Windows.Forms.Padding(4);
             this.Name = "PanoControlForm";
-            this.Text = "PanoramaControl Version 26 (Dec 29 2018)";
+            this.Text = "PanoramaControl Version 27.3.2 (October 1 2026)";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.PanoControl_FormClosing);
             this.Load += new System.EventHandler(this.PanoControlForm_Load);
             this.TimeLapse.ResumeLayout(false);
@@ -1034,6 +1086,7 @@ namespace PanoramaControlApp
         private System.Windows.Forms.Button MoveDownButton;
         private System.Windows.Forms.Button ConnectButton;
         private System.Windows.Forms.Button DisconnectButton;
+        private System.Windows.Forms.Label ConnectionStatusLabel;
         private System.Windows.Forms.Button StartButton;
         private System.Windows.Forms.Button PauseButton;
         private System.Windows.Forms.Button StopButton;
@@ -1048,6 +1101,11 @@ namespace PanoramaControlApp
         private System.Windows.Forms.Label FOVxLabel;
         private System.Windows.Forms.Label FOVyLabel;
         private System.Windows.Forms.Label CurPosLabel;
+        private System.Windows.Forms.Label RasterPosLabel;
+        private System.Windows.Forms.Label RasterColumnTitleLabel;
+        private System.Windows.Forms.Label RasterColumnValueLabel;
+        private System.Windows.Forms.Label RasterRowTitleLabel;
+        private System.Windows.Forms.Label RasterRowValueLabel;
         private System.Windows.Forms.Button ShutterTestButton;
         private System.Windows.Forms.TextBox ExpDelayTextBox;
         private System.Windows.Forms.Label ExposureDelayLabel;
@@ -1074,11 +1132,7 @@ namespace PanoramaControlApp
         private System.Windows.Forms.TabControl TimeLapse;
         private System.Windows.Forms.TabPage NavtabPage;
         private System.Windows.Forms.TabPage DebugtabPage;
-        private System.Windows.Forms.Panel panel1;
-        private System.Windows.Forms.Label Ylabel;
-        private System.Windows.Forms.Label Xlabel;
-        private System.Windows.Forms.Label AYlabel;
-        private System.Windows.Forms.Label AXlabel;
+        private BufferedPanel panel1;
         private System.Windows.Forms.TabPage NavtabPage2;
         private System.Windows.Forms.Button ClearPanelButton;
         private System.Windows.Forms.Panel panel2;
@@ -1086,16 +1140,18 @@ namespace PanoramaControlApp
         private System.Windows.Forms.Label CamSelCombolabel;
         private System.Windows.Forms.Button ContinueButton;
         private System.Windows.Forms.Button ColBackButton;
+        private System.Windows.Forms.Button ColForwardButton;
         private System.Windows.Forms.CheckBox VibrationCheckBox;
         private System.Windows.Forms.Button TestButton;
-        private System.Windows.Forms.Label AccTestLabel;
         private System.Windows.Forms.Button GetMuControllerStatusBtn;
         private System.Windows.Forms.TabPage tabPage1;
+        private System.Windows.Forms.Label TimelapseStateLabel;
+        private System.Windows.Forms.Label ShutterPulseCountLabel;
+        private System.Windows.Forms.Label LastShutterPulseLabel;
         private System.Windows.Forms.Button button1TimelapseStart;
         private System.Windows.Forms.Label label1TLPeriod;
         private System.Windows.Forms.TextBox textBoxTimeLapsePeriod;
         private System.Windows.Forms.Button buttonStopTimeLapse;
-        private System.Windows.Forms.Timer timer1;
         private System.Windows.Forms.CheckBox UseFlashResponseCheckBox;
         private System.Windows.Forms.CheckBox ControlTriggerDurationCheckBox;
         private System.Windows.Forms.TextBox CamTriggerDurationTextBox;

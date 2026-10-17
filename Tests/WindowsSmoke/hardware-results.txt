@@ -1,0 +1,23 @@
+PanoDuinoControl 2.4.70 (2026-10-17), Protokoll 2, ARDUINO_NANO_R4.
+Automatischer Support-Snapshot gespeichert.
+PanoDuinoControl 2.4.70 (2026-10-17), Protokoll 2, ARDUINO_NANO_R4.
+FW-Trace #18 @368239 ms: PLAN_LOADED, Bild 0, PLAN_READY/NONE, Ziel 55600/5900 mdeg, Ist 55700/5800 mdeg, Fehler -100/100 mdeg, stabil 13.
+FW-Trace #19 @368334 ms: STOPPED, Bild 0, STOPPED/NONE, Ziel 55500/5900 mdeg, Ist 55600/5800 mdeg, Fehler -100/100 mdeg, stabil 0.
+FW-Trace #20 @554092 ms: SESSION_OPENED, Bild 0, STOPPED/NONE, Ziel 55500/5900 mdeg, Ist 55600/5800 mdeg, Fehler -100/100 mdeg, stabil 0.
+Firmware-Trace vollständig: neueste Sequenz 20, übertragen 3, ältere überschriebene Ereignisse 0.
+Supportprotokoll für Diagnose/KI-Support: D:/KI-Repository/PanoramaSoftware/PanoramaControlGitRepo/Tests/WindowsSmoke/hardware\PanoramaSupport_20261017_140203_581.log
+FW-Trace #18 @368239 ms: PLAN_LOADED, Bild 0, PLAN_READY/NONE, Ziel 55600/5900 mdeg, Ist 55700/5800 mdeg, Fehler -100/100 mdeg, stabil 13.
+FW-Trace #19 @368334 ms: STOPPED, Bild 0, STOPPED/NONE, Ziel 55500/5900 mdeg, Ist 55600/5800 mdeg, Fehler -100/100 mdeg, stabil 0.
+FW-Trace #20 @554092 ms: SESSION_OPENED, Bild 0, STOPPED/NONE, Ziel 55500/5900 mdeg, Ist 55600/5800 mdeg, Fehler -100/100 mdeg, stabil 0.
+Firmware-Trace vollständig: neueste Sequenz 20, übertragen 3, ältere überschriebene Ereignisse 0.
+CONNECTED firmware=2.4.70 boot=132 state=Stopped run=1253531006 actual=55657/5933
+CAPABILITIES pan=-180.000°..180.000° tilt=-45.000°..30.000° runTempo=2000 manual=True jog=True warning=500/500 config=24
+CLEANUP own stopped test run=1253531006
+PanoDuinoControl: 4 IDLE
+PHASE small moves: pan +1 degree, return; tilt +1 degree, return
+MOVE target=56679/5845 actual=56953/5933
+MOVE target=55679/5845 actual=55876/5845
+MOVE target=55679/6845 actual=55876/6921
+PanoDuinoControl: 5 STOPPED
+FINAL STOP CONFIRMED state=Stopped run=0
+Support-Snapshot fehlgeschlagen: Sitzung beendet

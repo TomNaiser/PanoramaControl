@@ -1,10 +1,14 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Threading;
 using System.Globalization;
 using System.Media;
 using System.ComponentModel;
+using System.Threading.Tasks;
+using PanoramaControlApp.AppServices;
+using PanoramaControlApp.Communication;
+using PanoramaControlApp.Domain;
 
 
 namespace PanoramaControlApp
@@ -15,22 +19,65 @@ namespace PanoramaControlApp
 
         #region Member variables
         Bitmap drawingBitMap;               //Panel showing the whole work area
+        private Bitmap sphericalPreviewBitMap;
+        private Bitmap captureBitMap;
+        private Point? lastDrawnPosition;
         PanoramaAcquisitionClass PanoramaWorker;
         private BackgroundWorker backgroundWorker;
+        private readonly PanoramaSessionController sessionController;
+        private readonly ManualMoveTargets manualMoveTargets = new ManualMoveTargets();
+        private readonly SemaphoreSlim manualMoveGate = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim timingUpdateGate = new SemaphoreSlim(1, 1);
+        private readonly PapyWizardRunExporter runExporter = new PapyWizardRunExporter();
+        private uint activeRunId;
+        private RunState lastReportedRunState = RunState.Unknown;
+        private bool runStatusReady;
+        private readonly string baseWindowTitle;
+        private readonly System.Windows.Forms.Timer shutterPulseFlashTimer = new System.Windows.Forms.Timer();
+        private uint shownTimelapseRunId;
+        private uint shownTimelapsePulses;
+        private bool timelapseCountKnown;
+        private NumericUpDown tiltMinimumInput;
+        private NumericUpDown tiltMaximumInput;
+        private Button readTiltLimitsButton;
+        private Button saveTiltLimitsButton;
+        private Label tiltLimitsStatusLabel;
 
         #endregion
 
-        //ShowCommentOutput shows Infotext and can subscribes to events from other classes
+        // Gemeinsame Ausgabe fuer Bedienhinweise sowie Verbindungs- und Diagnosereignisse.
         public void ShowCommentOutput(String CommentText)
         {
             CommentRTB.AppendText(CommentText);
-            CommentRTB.Focus();
+            // Keep keyboard/mouse focus on the active control.
             CommentRTB.ScrollToCaret();
         }
 
-        public PanoControlForm()
+        public PanoControlForm() : this(new BluetoothComTransport(), false) { }
+
+        public PanoControlForm(ISerialTransport transport, bool offline, string stateDirectory = null)
         {
+            _stateDirectory = stateDirectory;
             InitializeComponent();
+            InitializeTiltLimitsControls();
+            scanModeComboBox.DrawItem += ScanModeComboBox_DrawItem;
+            shutterPulseFlashTimer.Interval = 800;
+            shutterPulseFlashTimer.Tick += (sender, args) =>
+            {
+                shutterPulseFlashTimer.Stop();
+                ShutterPulseCountLabel.ForeColor = SystemColors.ControlText;
+            };
+            VibDelayTextBox.KeyDown += TimingTextBox_KeyDown;
+            ExpDelayTextBox.KeyDown += TimingTextBox_KeyDown;
+            CamTriggerDurationTextBox.KeyDown += TimingTextBox_KeyDown;
+            baseWindowTitle = "PanoramaControl 27.4.3 · Android-Funktionsabgleich";
+            sessionController = new PanoramaSessionController(transport, stateDirectory == null ? null : System.IO.Path.Combine(stateDirectory, "SupportLogs"));
+            sessionController.Message += SessionController_Message;
+            sessionController.ConnectionStateChanged += SessionController_ConnectionStateChanged;
+            sessionController.CapabilitiesChanged += SessionController_CapabilitiesChanged;
+            sessionController.StatusChanged += SessionController_StatusChanged;
+            sessionController.DiagnosticsChanged += SessionController_DiagnosticsChanged;
+            sessionController.RunEventReceived += SessionController_RunEventReceived;
             this.backgroundWorker = new BackgroundWorker();
             this.backgroundWorker.WorkerSupportsCancellation = true;
 
@@ -42,16 +89,37 @@ namespace PanoramaControlApp
             PanoramaWorker.OnUpdateServoPositionWithParams = UpdateServoPosWithParams;
 
             //PanoramaWorker.ShowNewCommentInGUI("PanoControl started");
-            drawingBitMap = new Bitmap(panel1.Width, panel1.Height, panel1.CreateGraphics());
-            Graphics.FromImage(drawingBitMap).Clear(Color.White);
+            drawingBitMap = new Bitmap(panel1.Width, panel1.Height);
+            captureBitMap = new Bitmap(panel1.Width, panel1.Height);
+            using (Graphics graphics = Graphics.FromImage(drawingBitMap))
+                graphics.Clear(Color.White);
+            DrawPanelGrid();
 
             scanModeComboBox.SelectedIndex = 0;
             CamSelectCombo.SelectedIndex = 0;
 
             //Set Default Parameters 
             Params.SetDefaultValues();
+            scanModeComboBox.SelectedIndexChanged += ScanModeComboBox_SelectedIndexChanged;
+            Params.MoveModus = scanModeComboBox.SelectedIndex;
             //and read further parameters from Config to make Parameters accessible from anywhere
-            Params.readConfigFile();
+            try
+            {
+                Params.readConfigFile();
+            }
+            catch (Exception exception)
+            {
+                Params.SetDefaultValues();
+                CommentRTB.AppendText("Konfigurationsdatei ungültig; sichere Standardwerte werden verwendet: " + exception.Message + "\n");
+            }
+            if (!Params.ConfigurationFileLoaded)
+            {
+                CommentRTB.AppendText("Keine Konfigurationsdatei gefunden; sichere Standardwerte werden verwendet.\n");
+            }
+            if (!string.IsNullOrEmpty(Params.ConfigurationWarning))
+            {
+                CommentRTB.AppendText("Konfigurationshinweis: " + Params.ConfigurationWarning + "\n");
+            }
             SetCameraParameters();
             //Update TextBoxes with parameters
 
@@ -67,18 +135,20 @@ namespace PanoramaControlApp
 
             var fovCheck = CalculationsHelper.CalcFOV();
             CommentRTB.AppendText(fovCheck + "\n");
-            CommentRTB.Focus();
+            // Keep keyboard/mouse focus on the active control.
             CommentRTB.ScrollToCaret();
 
             FOVxLabel.Text = "FOVx:       " + Params.FOVx.ToString() + "°";
             FOVyLabel.Text = "FOVy:       " + Params.FOVy.ToString() + "°";
 
-            //Make the axes limits accessible to the serialPort-Class
+            // Nur fuer den verbleibenden V1-Pfad; V2 liest verbindliche Grenzen beim Handshake.
             muControllerInterface.MinPan = Params.limitX1;
             muControllerInterface.MaxPan = Params.limitX2;
             muControllerInterface.MinTilt = Params.limitY1;
             muControllerInterface.MaxTilt = Params.limitY2;
+            SetRunButtons(RunState.Unknown);
 
+            /*
             COMcomboBox.Items.Clear();
             var result=muControllerInterface.GetAvailableCOMPorts();
             //In case there are no COMPORTS available
@@ -90,13 +160,48 @@ namespace PanoramaControlApp
             COMcomboBox.Items.Clear();
             COMcomboBox.Items.AddRange(result.ToArray());
             COMcomboBox.SelectedIndex = 0;
+            */
+
+            InitializeCurrentControls();
+            if (offline) return;
+            COMcomboBox.Items.Clear();
+            var result = muControllerInterface.GetAvailableCOMPorts();
+
+            if (result[0] == "No Port Available")
+            {
+                MessageBox.Show("Es wurden keine COM-Ports gefunden.", "Fehler", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            COMcomboBox.Items.AddRange(result.ToArray());
+
+            // Port from Parameter File
+            string configuredPort = Params.COMPortName;
+            int index = COMcomboBox.Items.IndexOf(configuredPort);
+
+            if (index >= 0)
+            {
+                COMcomboBox.SelectedIndex = index;
+            }
+            else
+            {
+                MessageBox.Show(
+                    $"The COM-Port \"{configuredPort}\" (as specified in PanoControlConfig) is not available.\n" +
+                    "Please check your bluetooth connection, or select a different COM port.",
+                    "Selected COM-Port is not available",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
+                COMcomboBox.SelectedIndex = 0; // alternativ -1 um Auswahl leer zu lassen
+            }
 
             //Set start position
             Params.CurServoPosX = Params.InitPosX / Params.ConvFacX;
             Params.CurServoPosY = Params.InitPosY / Params.ConvFacY;
 
-            //Init  servos and move to start position
-            muControllerInterface.InitServo(Params.CurServoPosX, Params.CurServoPosY, Params.ServoSpeedX, Params.ServoSpeedY, Params.COMPortName, Params.BTbaudrate); 
+            //V2 verbindet sich über denselben Bluetooth-COM-Port, führt beim
+            //Verbinden aber bewusst noch keine Bewegung aus.
+            Shown += async (sender, args) => await ConnectV2Async(false);
             UpdateServoPosition();
             Params.StopAcquisition = false;
 
@@ -118,7 +223,6 @@ namespace PanoramaControlApp
             ServoPosPanLabel.Text = x.ToString();
             ServoPosTiltLabel.Text = y.ToString();
             UpdatePanel();
-            Application.DoEvents();   //Allow to the Form to refresh the text labels                                   
         }
 
         //simplified Version of UpdateServoPos
@@ -127,7 +231,6 @@ namespace PanoramaControlApp
             ServoPosPanLabel.Text = panAn.ToString("0.000");
             ServoPosTiltLabel.Text = tiltAn.ToString("0.000");
             UpdatePanel();
-            Application.DoEvents();   //Allow to the Form to refresh the text labels    
         }
 
         public double GetShowCoordinate(double value, int axisNum)
@@ -135,117 +238,53 @@ namespace PanoramaControlApp
             //axisNum: 0 for pan , 1 for tilt
             if (axisNum == 0)
             {
-                return (Params.xoffset - value);
+                return value;
             }
             if (axisNum == 1)
             {
-                return (Params.yoffset - value);
+                return value;
             }
             return (0);
         }
 
-        private void MoveLeftButton_Click(object sender, EventArgs e)
+        private async void MoveLeftButton_Click(object sender, EventArgs e)
         {
-            if (Params.AcquisitionRunning == true) return;
-            Params.CurServoPosX = Params.CurServoPosX + Params.MoveStepDeltaX;
+            await ArrowClickAsync(MoveLeftButton, 0, -1);
+        }
 
-            int a = muControllerInterface.MoveServo(Params.COMPortName, Params.BTbaudrate, 0, Params.CurServoPosX);
-            CommentRTB.AppendText("ServoPosX " + Params.CurServoPosX.ToString() + "\n");
-            CommentRTB.Focus();
+        private async void MoveRightButton_Click(object sender, EventArgs e)
+        {
+            await ArrowClickAsync(MoveRightButton, 0, 1);
+        }
+
+        private async void MoveUpButton_Click(object sender, EventArgs e)
+        {
+            await ArrowClickAsync(MoveUpButton, 1, 1);
+        }
+
+        private async void MoveDownButton_Click(object sender, EventArgs e)
+        {
+            await ArrowClickAsync(MoveDownButton, 1, -1);
+        }
+
+        private async void ConnectButton_Click(object sender, EventArgs e)
+        {
+            await ConnectV2Async(true);
+        }
+
+        private async void DisconnectButton_Click(object sender, EventArgs e)
+        {
+            await ReleaseJogAsync();
+            sessionController.Disconnect();
+            UpdateConnectionUi(sessionController.State);
+            CommentRTB.AppendText("COM-Port closed" + "\n");
+            // Keep keyboard/mouse focus on the active control.
             CommentRTB.ScrollToCaret();
-            Thread.Sleep(100);
-            UpdateServoPosition();
         }
 
-        private void MoveRightButton_Click(object sender, EventArgs e)
+        private async void SetStartPointButton_Click(object sender, EventArgs e)
         {
-            if (Params.AcquisitionRunning == true) return;
-            Params.CurServoPosX = Params.CurServoPosX - Params.MoveStepDeltaX;
-
-            muControllerInterface.MoveServo(Params.COMPortName, Params.BTbaudrate, 0, Params.CurServoPosX);
-            CommentRTB.AppendText("ServoPosX " + Params.CurServoPosX.ToString() + "\n");
-            CommentRTB.Focus();
-            CommentRTB.ScrollToCaret();
-            Thread.Sleep(100);
-            UpdateServoPosition();
-        }
-
-        private void MoveUpButton_Click(object sender, EventArgs e)
-        {
-            if (Params.AcquisitionRunning == true) return;
-            Params.CurServoPosY = Params.CurServoPosY - Params.MoveStepDeltaY;
-
-            muControllerInterface.MoveServo(Params.COMPortName, Params.BTbaudrate, 1, Params.CurServoPosY);
-            CommentRTB.AppendText("ServoPosY " + Params.CurServoPosY.ToString() + "\n");
-            CommentRTB.Focus();
-            CommentRTB.ScrollToCaret();
-            Thread.Sleep(100);
-            UpdateServoPosition();
-        }
-
-        private void MoveDownButton_Click(object sender, EventArgs e)
-        {
-            if (Params.AcquisitionRunning == true) return;
-            Params.CurServoPosY = Params.CurServoPosY + Params.MoveStepDeltaY;
-
-            muControllerInterface.MoveServo(Params.COMPortName, Params.BTbaudrate, 1, Params.CurServoPosY);
-            CommentRTB.AppendText("ServoPosY " + Params.CurServoPosY.ToString() + "\n");
-            CommentRTB.Focus();
-            CommentRTB.ScrollToCaret();
-            Thread.Sleep(100);
-            UpdateServoPosition();
-        }
-
-        private void ConnectButton_Click(object sender, EventArgs e)
-        {
-            String COMName;
-            try
-            {
-                //Open serial port 
-                ConnectButton.Enabled = false;
-                DisconnectButton.Enabled = true;
-                Params.connected = true;
-
-                if (muControllerInterface.myPort.IsOpen == true)
-                {
-                    muControllerInterface.ClosePort();
-                }
-
-                //if we selected something with COM than change the name, otherwise keep the old name
-
-                COMName = COMcomboBox.Text;
-                if (COMName.Contains("COM")) Params.COMPortName = COMName;
-
-                if (muControllerInterface.myPort.IsOpen == false)
-                {
-                    muControllerInterface.OpenPort(Params.COMPortName, Params.BTbaudrate);
-                }
-            }
-            catch
-            {
-                CommentRTB.AppendText("Problem while opening COM Port" + "\n");
-                CommentRTB.Focus();
-                CommentRTB.ScrollToCaret();
-            }
-        }
-
-        private void DisconnectButton_Click(object sender, EventArgs e)
-        {
-           //Close serial port
-            ConnectButton.Enabled = true;
-            DisconnectButton.Enabled = false;
-            Params.connected = false;
-            if (muControllerInterface.myPort.IsOpen == true)
-            {
-                muControllerInterface.ClosePort();
-                CommentRTB.AppendText("COM-Port closed" + "\n");
-                CommentRTB.Focus();
-                CommentRTB.ScrollToCaret();
-            }
-        }
-
-        private void SetStartPointButton_Click(object sender, EventArgs e)
-        {
+            if (!await PrepareRememberAsync()) return;
             //set start point for the panorama acquisition
             Params.StartPosX = Params.CurServoPosX;
             Params.StartPosY = Params.CurServoPosY;
@@ -254,20 +293,24 @@ namespace PanoramaControlApp
             double y = Math.Round(GetShowCoordinate(Params.StartPosY, 1), 2);
             StartPosXlabel.Text = x.ToString();
             StartPosYlabel.Text = y.ToString();
+            SaveEndpoints();
             Params.changeParam = 1;
             if (Params.ValidEndPosSet == true) //Start and Endpoint set - > Panorama is Made from these two points
             {
                 Params.PanoModus = 1;
-                UpdateAcquisitionGrid(); //Update the PanoramaModel
+                if (localSettings != null) SaveSetting("planInputMode", "1");
             }
+            viewedArchive = null; RebuildDraftFromInputs(true);
             CommentRTB.AppendText("Start Point set" + "\n");
-            CommentRTB.Focus();
+            panel1.Invalidate();
+            // Keep keyboard/mouse focus on the active control.
             CommentRTB.ScrollToCaret();
 
         }
 
-        private void SetEndPointButton_Click(object sender, EventArgs e)
+        private async void SetEndPointButton_Click(object sender, EventArgs e)
         {
+            if (!await PrepareRememberAsync()) return;
             //set end point for the panorama acquisition
             Params.EndPosX = Params.CurServoPosX;
             Params.EndPosY = Params.CurServoPosY;
@@ -277,14 +320,17 @@ namespace PanoramaControlApp
             EndPosXlabel.Text = x.ToString();
             EndPosYlabel.Text = y.ToString();
             Params.ValidEndPosSet = true;
+            SaveEndpoints();
             Params.changeParam = 2;
             if (Params.ValidStartPosSet == true) //Start and Endpoint set - > Panorama is Made from these two points
             {
                 Params.PanoModus = 1;
-                UpdateAcquisitionGrid(); //Update the PanoramaModel
+                if (localSettings != null) SaveSetting("planInputMode", "1");
             }
+            viewedArchive = null; RebuildDraftFromInputs(true);
             CommentRTB.AppendText("End Point set" + "\n");
-            CommentRTB.Focus();
+            panel1.Invalidate();
+            // Keep keyboard/mouse focus on the active control.
             CommentRTB.ScrollToCaret();
 
         }
@@ -292,10 +338,48 @@ namespace PanoramaControlApp
         //Calculate the new acquisition grid
         private void UpdateAcquisitionGrid()
         {
+            if (rebuildingGrid) return;
+            rebuildingGrid = true; previewPlan = null; draftProblem = ""; Params.validModel = false;
+            try
+            {
+                if (!Params.ValidStartPosSet || (Params.MoveModus == 4 || Params.PanoModus != 2) && !Params.ValidEndPosSet) return;
+                CalculateAcquisitionGrid();
+                if (Params.validModel)
+                {
+                    previewPlan = CreateDraft();
+                    if (previewPlan.TotalImages > 4000) throw new InvalidOperationException("Mehr als 4000 Bilder.");
+                }
+            }
+            catch (Exception ex) { previewPlan = null; Params.validModel = false; draftProblem = ex.Message; }
+            finally { rebuildingGrid = false; panel1.Invalidate(); }
+        }
+
+        private void CalculateAcquisitionGrid()
+        {
             double endX, endY;
             CommentRTB.AppendText("Model update" + "\n");
-            CommentRTB.Focus();
+            // Keep keyboard/mouse focus on the active control.
             CommentRTB.ScrollToCaret();
+            if (Params.MoveModus == 4)
+            {
+                Params.validModel = false;
+                if (!Params.ValidStartPosSet || !Params.ValidEndPosSet) { ClearSphericalPreview(); return; }
+                try
+                {
+                    PanoramaPlan preview = PanoramaPlanFactory.FromCurrentParameters(1, DisconnectPolicy.Continue, 0);
+                    if (preview.TotalImages > 4000) throw new InvalidOperationException("Mehr als 4000 Bilder.");
+                    Params.numX = preview.Columns;
+                    Params.numY = preview.Rows;
+                    NumXTextBox.Text = Params.numX.ToString(CultureInfo.InvariantCulture);
+                    NumYTextBox.Text = Params.numY.ToString(CultureInfo.InvariantCulture);
+                    Params.validModel = true;
+                    DrawSphericalPreview(preview);
+                    ShowCommentOutput("Spherical: " + preview.Rows + " Tilt-Bänder, " + preview.TotalImages + " Aufnahmen.\n");
+                }
+                catch { ClearSphericalPreview(); throw; }
+                return;
+            }
+            ClearSphericalPreview();
             //if mode ==1 then the grid is determined by start point,end point and FOV
             if (Params.PanoModus == 1)
             {
@@ -316,19 +400,11 @@ namespace PanoramaControlApp
                 Params.deltaX = Params.FOVx * (100 - Params.Overlap) / 100;
                 Params.deltaY = Params.FOVy * (100 - Params.Overlap) / 100;
 
-                endX = Params.ConvFacX * (Params.StartPosX + Params.numX * Params.deltaX);  //End position in servo units
-                endY = Params.ConvFacY * (Params.StartPosY + Params.numY * Params.deltaY);
-
-                //Check if the end position is within the servo limits
-                if ((endX < Params.limitX1) || (endX > Params.limitX2) || (endY < Params.limitY1) || (endY > Params.limitY2))
-                {
-                    //Warning: out of Servo range
-                    Params.validModel = false;
-                    CommentRTB.AppendText("Error in UpdateAcquisitionGrid: calculated end position beyond servo limits!\n");
-                    CommentRTB.Focus();
-                    CommentRTB.ScrollToCaret();
-                    return;
-                }
+                Params.deltaX = Params.FOVx * (100 - Params.Overlap) / 100;
+                Params.deltaY = Params.FOVy * (100 - Params.Overlap) / 100;
+                endX = Params.StartPosX + (Params.numX - 1) * Params.deltaX;
+                endY = Params.StartPosY + (Params.numY - 1) * Params.deltaY;
+                if (!Params.ValidStartPosSet || double.IsNaN(endX) || double.IsNaN(endY)) { Params.validModel = false; return; }
                 Params.validModel = true;  //ready to go
 
             }
@@ -342,64 +418,47 @@ namespace PanoramaControlApp
         //Get Camera parameters for the camera type (set in the CamSelect ComboBox)
         public void SetCameraParameters()
         {
-            Params.FocalLength = Params.FocalLengthOptions[CamSelectCombo.SelectedIndex];
-
-            Params.ChipWidth = Params.ChipWidthOptions[CamSelectCombo.SelectedIndex];
-            Params.ChipHeight = Params.ChipHeightOptions[CamSelectCombo.SelectedIndex];
-
-            Params.VibrationDelay = Params.VibrationDelayOptions[CamSelectCombo.SelectedIndex];
-            Params.ExposureDelay = Params.ExposureDelayOptions[CamSelectCombo.SelectedIndex];
-
-            Params.MoveStepDeltaX = Params.MoveStepDeltaXOptions[CamSelectCombo.SelectedIndex];
-            Params.MoveStepDeltaY = Params.MoveStepDeltaYOptions[CamSelectCombo.SelectedIndex];
+            if (localSettings != null && localSettings.Get("profile." + CamSelectCombo.Text, "").Length > 0) { ApplySavedProfile(CamSelectCombo.Text); return; }
+            Params.ApplyCameraSelection(CamSelectCombo.SelectedIndex);
+            Params.MoveStepDeltaX = Params.MoveStepDeltaY = .1;
         }
 
-        private void StartButton_Click(object sender, EventArgs e)
+        private async void StartButton_Click(object sender, EventArgs e)
         {
-            UpdateAcquisitionGrid();
-
-            //AcquirePanorama(Params.StartPosX, Params.StartPosX + Params.numX * Params.deltaX, Params.deltaX, Params.StartPosY, Params.StartPosY + Params.numY * Params.deltaY, Params.deltaY, Params.MoveModus);
-            if (Params.AcquisitionProcessExists == true) return;
-            if (backgroundWorker.IsBusy) return;
-            Params.AcquisitionProcessExists = true; //Now we have an AcquisitionProcess
-
-            backgroundWorker.DoWork += Worker_AcquirePanorama;
-            backgroundWorker.ProgressChanged += Worker_ProgressChanged;
-            backgroundWorker.WorkerReportsProgress = true;
-            backgroundWorker.RunWorkerCompleted += Worker_RunWorkerCompleted;
-
-            //Then, we set the Worker off. 
-            //This triggers the DoWork event.
-            //Notice the word Async - it means that Worker gets its own thread,
-            //and the main thread will carry on with its own calculations separately.
-            //We can pass any data that the worker needs as a parameter.
-            backgroundWorker.RunWorkerAsync();
-            StartButton.Enabled = false;
-            StopButton.Enabled = true;
-            PauseButton.Enabled = true;
-            ContinueButton.Enabled = false;
-            CommentRTB.AppendText("Pano acquisition started" + "\n");
-            CommentRTB.Focus();
-            CommentRTB.ScrollToCaret();
-            // PanoramaWorker.AcquirePanorama(Params.StartPosX, Params.StartPosX + Params.numX * Params.deltaX, Params.deltaX, Params.StartPosY, Params.StartPosY + Params.numY * Params.deltaY, Params.deltaY, Params.MoveModus);
-            // PapyWizardHelper.ClosePositionDataXMLFiles();
+            await UiActionAsync(async () =>
+            {
+                var plan = sessionController.ActivePlan;
+                if (plan == null) throw new InvalidOperationException("Zuerst einen Plan übertragen.");
+                if (MessageBox.Show(this, "Geladenen Geräteauftrag " + plan.RunId + " mit " + plan.TotalImages +
+                    " Aufnahmen starten? Das Gerät fährt und löst die Kamera aus. Spätere lokale Änderungen müssen zuvor erneut übertragen werden.",
+                    "Aufnahme starten", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
+                var result = await sessionController.StartAsync(plan.RunId, CancellationToken.None);
+                if (!result.Accepted) throw new InvalidOperationException(result.Code);
+            });
         }
 
-        private void StopButton_Click(object sender, EventArgs e)
+        private async void StopButton_Click(object sender, EventArgs e)
         {
-            Params.StopAcquisition = true;
-            SystemSounds.Beep.Play();
-            CommentRTB.AppendText("Pano acquisition stopped" + "\n");
-            CommentRTB.Focus();
-            CommentRTB.ScrollToCaret();
-            PapyWizardHelper.ClosePositionDataXMLFiles();
+            DialogResult confirmation = MessageBox.Show(
+                "Panorama wirklich stoppen? Die Motoren werden sofort abgeschaltet und es erfolgt keine weitere Fahrt.",
+                "Panorama stoppen",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2);
+            if (confirmation != DialogResult.Yes) return;
 
-            if (backgroundWorker.IsBusy)
-                backgroundWorker.CancelAsync();
-            StartButton.Enabled = true;
-            StopButton.Enabled = false;
-            PauseButton.Enabled = false;
-            ContinueButton.Enabled = false;
+            try
+            {
+                var result = await sessionController.StopAsync(activeRunId, CancellationToken.None);
+                if (!result.Accepted) throw new InvalidOperationException("STOP abgelehnt: " + result.Code);
+                Params.StopAcquisition = true;
+                SystemSounds.Beep.Play();
+                ShowCommentOutput("Pano acquisition stopped; Motoren abgeschaltet.\n");
+            }
+            catch (Exception exception)
+            {
+                ShowOperationError("Stoppen fehlgeschlagen", exception);
+            }
         }
 
         private void Worker_AcquirePanorama(object sender, DoWorkEventArgs e)
@@ -444,39 +503,31 @@ namespace PanoramaControlApp
         }
         private void PanoControl_FormClosing(object sender, FormClosingEventArgs e)
         {
-            if (muControllerInterface.myPort == null) return;
-            if (muControllerInterface.myPort.IsOpen == true)
-            {
-                muControllerInterface.ClosePort();
-            }
+            if (!FinishClosing(e)) return;
+            shutterPulseFlashTimer.Dispose();
+            ClosePositionLog();
+            sessionController.Dispose();
+            drawingBitMap.Dispose();
+            captureBitMap.Dispose();
+            if (sphericalPreviewBitMap != null) sphericalPreviewBitMap.Dispose();
         }
 
 
 
-        private void ShutterTestButton_Click(object sender, EventArgs e)
+        private async void ShutterTestButton_Click(object sender, EventArgs e)
         {
-            Thread.Sleep(200);
-            PanoramaWorker.CamShutter();
-
-            //Wait until we get an answer from the camera - that the flash has fired - or until the waitTime is over
-            var totalDelayTime = 0;
-            var waitTime = Convert.ToInt32((Params.ExposureDelay) * 1000);
-            var camStatus = muControllerInterface.ReqCameraStatus();
-            if (camStatus) CommentRTB.AppendText("CamStatus=false " + "\n");
-            else CommentRTB.AppendText("CamStatus is true " + "\n");
-
-            while (!muControllerInterface.ReqCameraStatus()) 
+            try
             {
-                CommentRTB.AppendText("Waiting for Camera response... " + "\n");
-                Thread.Sleep(100);
-                totalDelayTime = totalDelayTime + 100;
-                if (totalDelayTime >= waitTime)
-                {
-                    CommentRTB.AppendText("Warning: Timeout - no exposure response from camera (is the flash activated!?)" + "\n");
-                    CommentRTB.Focus();
-                    CommentRTB.ScrollToCaret();
-                    break;
-                }
+                uint pulseTime = Params.ControlledDurationTrigger
+                    ? checked((uint)Math.Max(1, Math.Round(Params.CamTriggerDuration * 1000.0)))
+                    : 30U;
+                var result = await sessionController.TriggerOnceAsync(pulseTime, CancellationToken.None);
+                if (!result.Accepted) throw new InvalidOperationException("TRIGGER_ONCE abgelehnt: " + result.Code);
+                ShowCommentOutput("Camera trigger sent (keine Kamerabestätigung konfiguriert).\n");
+            }
+            catch (Exception exception)
+            {
+                ShowOperationError("Kameratest fehlgeschlagen", exception);
             }
         }
 
@@ -491,11 +542,12 @@ namespace PanoramaControlApp
             Params.FocalLength = Convert.ToDouble(FocalLengthTextBox.Text, CultureInfo.InvariantCulture);
             var fovCheck=CalculationsHelper.CalcFOV();
             CommentRTB.AppendText(fovCheck + "\n");
-            CommentRTB.Focus();
+            // Keep keyboard/mouse focus on the active control.
             CommentRTB.ScrollToCaret();
 
             FOVxLabel.Text = "FOVx:       " + Params.FOVx.ToString() + "°";
             FOVyLabel.Text = "FOVy:       " + Params.FOVy.ToString() + "°";
+            RefreshSphericalPreviewAfterSettingsChange();
         }
 
         private void OverlapTextBox_Leave(object sender, EventArgs e)
@@ -503,6 +555,7 @@ namespace PanoramaControlApp
             OverlapTextBox.Text = ValidateDouble(OverlapTextBox.Text, 15, 1, 100).ToString(CultureInfo.InvariantCulture);
             Params.changeParam = 4;
             Params.Overlap = Convert.ToDouble(OverlapTextBox.Text, CultureInfo.InvariantCulture);
+            RefreshSphericalPreviewAfterSettingsChange();
         }
 
         private void ChipWTextBox_Leave(object sender, EventArgs e)
@@ -512,11 +565,12 @@ namespace PanoramaControlApp
             Params.ChipWidth = Convert.ToDouble(ChipWTextBox.Text, CultureInfo.InvariantCulture);
             var fovCheck = CalculationsHelper.CalcFOV();
             CommentRTB.AppendText(fovCheck + "\n");
-            CommentRTB.Focus();
+            // Keep keyboard/mouse focus on the active control.
             CommentRTB.ScrollToCaret();
 
             FOVxLabel.Text = "FOVx:       " + Params.FOVx.ToString() + "°";
             FOVyLabel.Text = "FOVy:       " + Params.FOVy.ToString() + "°";
+            RefreshSphericalPreviewAfterSettingsChange();
         }
 
         private void ChipHTextBox_Leave(object sender, EventArgs e)
@@ -526,10 +580,11 @@ namespace PanoramaControlApp
             Params.ChipHeight = Convert.ToDouble(ChipHTextBox.Text, CultureInfo.InvariantCulture);
             var fovCheck = CalculationsHelper.CalcFOV();
             CommentRTB.AppendText(fovCheck + "\n");
-            CommentRTB.Focus();
+            // Keep keyboard/mouse focus on the active control.
             CommentRTB.ScrollToCaret();
             FOVxLabel.Text = "FOVx:       " + Params.FOVx.ToString() + "°";
             FOVyLabel.Text = "FOVy:       " + Params.FOVy.ToString() + "°";
+            RefreshSphericalPreviewAfterSettingsChange();
         }
 
         private void NumXTextBox_Leave(object sender, EventArgs e)
@@ -538,6 +593,7 @@ namespace PanoramaControlApp
             Params.changeParam = 9;
             Params.numX = Convert.ToInt32(NumXTextBox.Text);
             Params.ValidNumXSet = true;
+            if (Params.ValidStartPosSet) { Params.PanoModus = 2; if (localSettings != null) SaveSetting("planInputMode", "2"); RebuildDraftFromInputs(true); }
         }
 
         private void NumYTextBox_Leave(object sender, EventArgs e)
@@ -546,167 +602,216 @@ namespace PanoramaControlApp
             Params.changeParam = 10;
             Params.numY = Convert.ToInt32(NumYTextBox.Text);
             Params.ValidNumYSet = true;
+            if (Params.ValidStartPosSet) { Params.PanoModus = 2; if (localSettings != null) SaveSetting("planInputMode", "2"); RebuildDraftFromInputs(true); }
         }
 
-        private void VibDelayTextBox_Leave(object sender, EventArgs e)
+        private async void VibDelayTextBox_Leave(object sender, EventArgs e)
         {
-            VibDelayTextBox.Text = ValidateDouble(VibDelayTextBox.Text, 1.0, 0.0, 100.0).ToString(CultureInfo.InvariantCulture);
+            VibDelayTextBox.Text = ValidateDouble(VibDelayTextBox.Text, 1.0, 0.0, 600.0).ToString(CultureInfo.InvariantCulture);
             Params.changeParam = 7;
             Params.VibrationDelay = Convert.ToDouble(VibDelayTextBox.Text, CultureInfo.InvariantCulture);
+            await ApplyTimingIfActiveAsync();
         }
 
-        private void ExpDelayTextBox_Leave(object sender, EventArgs e)
+        private async void ExpDelayTextBox_Leave(object sender, EventArgs e)
         {
-            ExpDelayTextBox.Text = ValidateDouble(ExpDelayTextBox.Text, 1.0, 0.0, 100.0).ToString(CultureInfo.InvariantCulture);
+            ExpDelayTextBox.Text = ValidateDouble(ExpDelayTextBox.Text, 1.0, 0.0, 3600.0).ToString(CultureInfo.InvariantCulture);
             Params.changeParam = 8;
             Params.ExposureDelay = Convert.ToDouble(ExpDelayTextBox.Text, CultureInfo.InvariantCulture);
+            await ApplyTimingIfActiveAsync();
         }
 
 
-        private void CamTriggerDurationTextBox_Leave(object sender, EventArgs e)
+        private async void CamTriggerDurationTextBox_Leave(object sender, EventArgs e)
         {
-            CamTriggerDurationTextBox.Text = ValidateDouble(CamTriggerDurationTextBox.Text, 1.0, 0.0, 1000.0).ToString(CultureInfo.InvariantCulture);
+            CamTriggerDurationTextBox.Text = ValidateDouble(CamTriggerDurationTextBox.Text, 1.0, 0.001, 60.0).ToString(CultureInfo.InvariantCulture);
             Params.CamTriggerDuration = Convert.ToDouble(CamTriggerDurationTextBox.Text, CultureInfo.InvariantCulture);
+            await ApplyTimingIfActiveAsync();
+        }
+
+        private void TimingTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode != Keys.Enter) return;
+            e.SuppressKeyPress = true;
+            SelectNextControl((Control)sender, true, true, true, true);
+        }
+
+        private async Task ApplyTimingIfActiveAsync()
+        {
+            if (sessionController == null) return;
+            await timingUpdateGate.WaitAsync();
+            try
+            {
+                RunState state = sessionController.CurrentStatus.State;
+                if (sessionController.State != ConnectionState.Connected || activeRunId == 0 ||
+                    (state != RunState.PlanReady && state != RunState.Running &&
+                     state != RunState.PausePending && state != RunState.Paused)) return;
+                RunTimingSettings timing = RunTimingSettings.FromSeconds(
+                    Params.VibrationDelay, Params.ExposureDelay, Params.CamTriggerDuration,
+                    Params.ControlledDurationTrigger);
+                var result = await sessionController.UpdateTimingAsync(activeRunId, timing, CancellationToken.None);
+                if (!result.Accepted) throw new InvalidOperationException("UPDATE_TIMING abgelehnt: " + result.Code);
+                ShowCommentOutput("Zeiten an Arduino übertragen: Move Delay " +
+                    (timing.SettleTimeMs / 1000.0).ToString("0.###", CultureInfo.InvariantCulture) + " s, Trigger " +
+                    (timing.TriggerPulseMs / 1000.0).ToString("0.###", CultureInfo.InvariantCulture) + " s, Exposure Delay " +
+                    (timing.ExposureWaitMs / 1000.0).ToString("0.###", CultureInfo.InvariantCulture) +
+                    (result.Code == "TIMING_QUEUED" ? " s; ab dem nächsten Bild.\n" : " s; jetzt aktiv.\n"));
+            }
+            catch (Exception exception)
+            {
+                ShowOperationError("Laufzeit-Zeiten konnten nicht aktualisiert werden", exception);
+            }
+            finally { timingUpdateGate.Release(); }
         }
 
         private void SpeedXTextBox_Leave(object sender, EventArgs e)
         {
-            SpeedXTextBox.Text = ValidateDouble(SpeedXTextBox.Text, 0.5, 0.0, 3.0).ToString(CultureInfo.InvariantCulture);
+            SpeedXTextBox.Text = ValidateDouble(SpeedXTextBox.Text, 1, 0.001, 2.0).ToString(CultureInfo.InvariantCulture);
             Params.ServoSpeedX = Convert.ToDouble(SpeedXTextBox.Text, CultureInfo.InvariantCulture);
         }
 
         private void SpeedYTextBox_Leave(object sender, EventArgs e)
         {
-            SpeedYTextBox.Text = ValidateDouble(SpeedYTextBox.Text, 0.5, 0.0, 3.0).ToString(CultureInfo.InvariantCulture);
+            SpeedYTextBox.Text = ValidateDouble(SpeedYTextBox.Text, 1, 0.001, 2.0).ToString(CultureInfo.InvariantCulture);
             Params.ServoSpeedY = Convert.ToDouble(SpeedYTextBox.Text, CultureInfo.InvariantCulture);
         }
 
         private void DrawPanelGrid()
         {
-            Graphics panel = Graphics.FromImage(drawingBitMap);
-
-            Pen pen = new Pen(Color.Black, 1);
-
-            pen.EndCap = System.Drawing.Drawing2D.LineCap.Round;
-            pen.StartCap = System.Drawing.Drawing2D.LineCap.Round;
-
-            for (int ax = -180; ax <= 180; ax = ax + 20)
+            using (Graphics panel = Graphics.FromImage(drawingBitMap))
+            using (Pen gridPen = new Pen(Color.Black, 1))
+            using (Pen axisPen = new Pen(Color.Gray, 3))
             {
-                int x = 360 + 2 * ax;
-                panel.DrawLine(pen, x, 0, x, 180);
+                for (int ax = -180; ax <= 180; ax += 20)
+                {
+                    int x = 360 + 2 * ax;
+                    panel.DrawLine(gridPen, x, 0, x, 180);
+                }
+                for (int ay = -70; ay <= 70; ay += 10)
+                {
+                    int y = 90 + Convert.ToInt32(ay * 1.1);
+                    panel.DrawLine(gridPen, 0, y, 720, y);
+                }
+                panel.DrawLine(axisPen, 360, 0, 360, 180);
+                panel.DrawLine(axisPen, 0, 90, 720, 90);
             }
-
-            for (int ay = -70; ay <= 70; ay = ay + 10)
-            {
-                int y = 90 + Convert.ToInt32(ay * 1.1);
-                panel.DrawLine(pen, 0, y, 720, y);
-            }
-
-            Pen pen2 = new Pen(Color.Gray, 3);
-            panel.DrawLine(pen2, 360, 0, 360, 180);
-            panel.DrawLine(pen2, 0, 90, 720, 90);
-
-            panel1.CreateGraphics().DrawImageUnscaled(drawingBitMap, new Point(0, 0));
         }
 
-        private void panel1_MouseDown(object sender, MouseEventArgs e)
+        private async void panel1_MouseDown(object sender, MouseEventArgs e)
         {
-            if (Params.AcquisitionRunning == true) return; //Do not respond while an Acquisition is running
-
-            Params.pX = e.X; //Get Mouse Pointer position
-            Params.pY = e.Y;
-
-            Graphics panel = Graphics.FromImage(drawingBitMap);
-
-            Pen pen = new Pen(Color.Black, 14);
-
-            pen.EndCap = System.Drawing.Drawing2D.LineCap.Round;
-            pen.StartCap = System.Drawing.Drawing2D.LineCap.Round;
-
-            panel1.CreateGraphics().DrawImageUnscaled(drawingBitMap, new Point(0, 0));
-            Xlabel.Text = Params.pX.ToString();
-            Ylabel.Text = Params.pY.ToString();
-            double selectedXpos = Math.Round((double)-(Params.pX - 360) / 2, 5);
-            double selectedYpos = Math.Round((Params.pY - 90) / 1.1, 5);
-            AXlabel.Text = selectedXpos.ToString();
-            AYlabel.Text = selectedYpos.ToString();
-            int a = muControllerInterface.MovePositionManually(selectedXpos, selectedYpos);
-            UpdateServoPosition();
-            //UpdatePanel();
+            if (e.Button != MouseButtons.Left || !ManualMovementAllowed()) return;
+            SelectPlotTarget(e);
+            PointF target = selectedTarget.Value;
+            await UiActionAsync(async () => await MoveManualAsync(target.X, target.Y));
         }
 
         private void UpdatePanel()
         {
-            double CurXpanel = -(Params.CurServoPosX - Params.xoffset) * 2 + 360.0;
-            double CurYpanel = 1.1 * (Params.CurServoPosY - Params.yoffset) + 90;
+            Point current = ToPanelPoint(Params.CurServoPosX, Params.CurServoPosY);
+            if (lastDrawnPosition.HasValue && lastDrawnPosition.Value == current) return;
+            lastDrawnPosition = current;
+            panel1.Invalidate();
+        }
 
-            int pX = Convert.ToInt32(CurXpanel);
-            int pY = Convert.ToInt32(CurYpanel);
-            DrawPanelGrid();
-            Graphics panel = Graphics.FromImage(drawingBitMap);
+        private Point ToPanelPoint(double pan, double tilt)
+        {
+            return new Point((int)Math.Round((viewRight - pan) / (viewRight - viewLeft) * panel1.Width),
+                (int)Math.Round((viewTop - tilt) / (viewTop - viewBottom) * panel1.Height));
+        }
 
-            Pen pen = new Pen(Color.Black, 1);
+        private static void DrawCross(Graphics graphics, Pen pen, Point point)
+        {
+            graphics.DrawLine(pen, point.X, point.Y + 3, point.X, point.Y - 3);
+            graphics.DrawLine(pen, point.X + 3, point.Y, point.X - 3, point.Y);
+        }
+        private void DrawEndpoint(Graphics graphics, Pen pen, double pan, double tilt, string caption)
+        {
+            Point point = ToPanelPoint(pan, tilt);
+            DrawCross(graphics, pen, point);
+            if (point.X < 0 || point.X >= panel1.Width || point.Y < 0 || point.Y >= panel1.Height) return;
+            SizeF size = graphics.MeasureString(caption, Font);
+            float x = Math.Max(0, Math.Min(panel1.Width - size.Width, point.X + 7));
+            float y = Math.Max(0, Math.Min(panel1.Height - size.Height, point.Y - size.Height));
+            graphics.FillRectangle(Brushes.White, x, y, size.Width, size.Height);
+            using (var brush = new SolidBrush(pen.Color)) graphics.DrawString(caption, Font, brush, x, y);
+        }
 
-            pen.EndCap = System.Drawing.Drawing2D.LineCap.Round;
-            pen.StartCap = System.Drawing.Drawing2D.LineCap.Round;
+        private void DrawCapturePoint(double pan, double tilt)
+        {
+            using (Graphics graphics = Graphics.FromImage(captureBitMap))
+            using (Pen pen = new Pen(Color.Black, 1))
+                DrawCross(graphics, pen, ToPanelPoint(pan, tilt));
+            panel1.Invalidate();
+        }
 
-            //Draw a cross
-            panel.DrawLine(pen, pX, pY + 3, pX, pY - 3);
-            panel.DrawLine(pen, pX + 3, pY, pX - 3, pY);
-
-            if (Params.ValidStartPosSet == true)
+        private void DrawSphericalPreview(PanoramaPlan plan)
+        {
+            ClearSphericalPreview();
+            var bitmap = new Bitmap(panel1.Width, panel1.Height);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            using (Brush dot = new SolidBrush(Color.FromArgb(150, 68, 121, 147)))
+            using (Pen bandLine = new Pen(Color.FromArgb(65, 68, 121, 147), 1))
             {
-                double StXpanel = -(Params.StartPosX - Params.xoffset) * 2 + 360.0;
-                double StYpanel = 1.1 * (Params.StartPosY - Params.yoffset) + 90;
-
-                pX = Convert.ToInt32(StXpanel);
-                pY = Convert.ToInt32(StYpanel);
-
-                Pen penSt = new Pen(Color.Blue, 2);
-
-                penSt.EndCap = System.Drawing.Drawing2D.LineCap.Round;
-                penSt.StartCap = System.Drawing.Drawing2D.LineCap.Round;
-
-                //Draw a cross
-                panel.DrawLine(penSt, pX, pY + 3, pX, pY - 3);
-                panel.DrawLine(penSt, pX + 3, pY, pX - 3, pY);
+                Point? previousPoint = null;
+                ushort previousBand = 0;
+                for (uint index = 0; index < plan.TotalImages; index++)
+                {
+                    TargetPosition target = plan.GetTarget(index);
+                    Point point = ToPanelPoint(CoordinateContract.DeviceToUi(target.Pan).ToDegrees(),
+                        CoordinateContract.DeviceTiltToUi(target.Tilt).ToDegrees());
+                    if (previousPoint.HasValue && previousBand == target.Row)
+                        graphics.DrawLine(bandLine, previousPoint.Value, point);
+                    graphics.FillEllipse(dot, point.X - 2, point.Y - 2, 4, 4);
+                    previousPoint = point;
+                    previousBand = target.Row;
+                }
             }
-            if (Params.ValidEndPosSet == true)
-            {
-                double EnXpanel = -(Params.EndPosX - Params.xoffset) * 2 + 360.0;
-                double EnYpanel = 1.1 * (Params.EndPosY - Params.yoffset) + 90;
+            sphericalPreviewBitMap = bitmap;
+            panel1.Invalidate();
+        }
 
-                pX = Convert.ToInt32(EnXpanel);
-                pY = Convert.ToInt32(EnYpanel);
+        private void ClearSphericalPreview()
+        {
+            if (sphericalPreviewBitMap == null) return;
+            sphericalPreviewBitMap.Dispose();
+            sphericalPreviewBitMap = null;
+            panel1.Invalidate();
+        }
 
-                Pen penEn = new Pen(Color.Red, 2);
-
-                penEn.EndCap = System.Drawing.Drawing2D.LineCap.Round;
-                penEn.StartCap = System.Drawing.Drawing2D.LineCap.Round;
-
-                //Draw a cross
-                panel.DrawLine(penEn, pX, pY + 3, pX, pY - 3);
-                panel.DrawLine(penEn, pX + 3, pY, pX - 3, pY);
-            }
-            panel1.CreateGraphics().DrawImageUnscaled(drawingBitMap, new Point(0, 0));
+        private void RefreshSphericalPreviewAfterSettingsChange()
+        {
+            if (!Params.AcquisitionRunning && Params.ValidStartPosSet)
+                UpdateAcquisitionGrid();
         }
 
         private void panel1_Paint(object sender, PaintEventArgs e)
         {
-            e.Graphics.DrawImageUnscaled(drawingBitMap, new Point(0, 0));
+            if (drawingBitMap == null) return;
+            DrawCurrentPlot(e.Graphics);
+            Point current = ToPanelPoint(Params.CurServoPosX, Params.CurServoPosY);
+            if (viewedArchive == null && sessionController.StatusFresh)
+                using (Pen currentPen = new Pen(Color.DarkSlateGray, 3))
+                    e.Graphics.DrawEllipse(currentPen, current.X - 5, current.Y - 5, 10, 10);
+            if (viewedArchive == null && Params.ValidStartPosSet)
+                using (Pen startPen = new Pen(Color.Blue, 2))
+                    DrawEndpoint(e.Graphics, startPen, Params.StartPosX, Params.StartPosY, "Start");
+            if (viewedArchive == null && Params.ValidEndPosSet)
+                using (Pen endPen = new Pen(Color.Red, 2))
+                    DrawEndpoint(e.Graphics, endPen, Params.EndPosX, Params.EndPosY, "Ende");
         }
 
         private void ClearPanelButton_Click(object sender, EventArgs e)
         {
-            Graphics panel = Graphics.FromImage(drawingBitMap);
-            SolidBrush brushOne = new SolidBrush(Color.White);
-            panel.FillRectangle(brushOne, 0, 0, 720, 180);
+            using (Graphics panel = Graphics.FromImage(drawingBitMap))
+                panel.Clear(Color.White);
+            using (Graphics captures = Graphics.FromImage(captureBitMap))
+                captures.Clear(Color.Transparent);
             DrawPanelGrid();
-            panel1.CreateGraphics().DrawImageUnscaled(drawingBitMap, new Point(0, 0));
+            panel1.Invalidate();
         }
         
 
-        private void CamSelectCombo_SelectedIndexChanged(object sender, EventArgs e)
+        private async void CamSelectCombo_SelectedIndexChanged(object sender, EventArgs e)
         {
             SetCameraParameters();
             
@@ -720,29 +825,70 @@ namespace PanoramaControlApp
 
             var fovCheck = CalculationsHelper.CalcFOV();
             CommentRTB.AppendText(fovCheck + "\n");
-            CommentRTB.Focus();
+            // Keep keyboard/mouse focus on the active control.
             CommentRTB.ScrollToCaret();
             FOVxLabel.Text = "FOVx:       " + Params.FOVx.ToString() + "°";
             FOVyLabel.Text = "FOVy:       " + Params.FOVy.ToString() + "°";
+            RefreshSphericalPreviewAfterSettingsChange();
+            if (localSettings != null) SaveSetting("selectedProfile", CamSelectCombo.Text);
+            await ApplyTimingIfActiveAsync();
         }
 
-        private void PauseButton_Click(object sender, EventArgs e)
+        private async void PauseButton_Click(object sender, EventArgs e)
         {
-            Params.paused = true;   //Begin pause, set the paused-Flag
-            ContinueButton.Enabled = true;
-            PauseButton.Enabled = false;
+            try
+            {
+                var result = await sessionController.PauseAsync(activeRunId, CancellationToken.None);
+                if (!result.Accepted) throw new InvalidOperationException("PAUSE abgelehnt: " + result.Code);
+                Params.paused = true;
+                ContinueButton.Enabled = false;
+                PauseButton.Enabled = false;
+                ShowCommentOutput(result.Code == "PAUSE_PENDING"
+                    ? "Pause angefordert; das aktuelle Bild wird noch vollständig aufgenommen.\n"
+                    : "Panorama pausiert.\n");
+            }
+            catch (Exception exception)
+            {
+                ShowOperationError("Pausieren fehlgeschlagen", exception);
+            }
         }
 
-        private void ContinueButton_Click(object sender, EventArgs e)
+        private async void ContinueButton_Click(object sender, EventArgs e)
         {
-            Params.paused = false;  //End the pause, reset the paused-Flag
-            PauseButton.Enabled = true;
-            ContinueButton.Enabled = false;
+            try
+            {
+                var result = await sessionController.ResumeAsync(activeRunId, CancellationToken.None);
+                if (!result.Accepted) throw new InvalidOperationException("RESUME abgelehnt: " + result.Code);
+                Params.paused = false;
+                PauseButton.Enabled = true;
+                ContinueButton.Enabled = false;
+            }
+            catch (Exception exception)
+            {
+                ShowOperationError("Fortsetzen fehlgeschlagen", exception);
+            }
         }
 
-        private void ColBackButton_Click(object sender, EventArgs e)
+        private async void ColBackButton_Click(object sender, EventArgs e)
         {
-            Params.ColumnBack = true;
+            RunState state = sessionController.CurrentStatus.State;
+            if (state != RunState.Running && state != RunState.PausePending && state != RunState.Paused)
+            {
+                ShowCommentOutput("Spalten können nur während eines laufenden oder pausierten Panoramas zurückgesetzt werden.\n");
+                return;
+            }
+            try
+            {
+                var result = await sessionController.RewindColumnsAsync(activeRunId, 1, CancellationToken.None);
+                if (!result.Accepted) throw new InvalidOperationException("REWIND_COLUMNS abgelehnt: " + result.Code);
+                ShowCommentOutput(result.Code == "REWIND_PENDING"
+                    ? "Eine Spalte zurück vorgemerkt. Das aktuelle Bild wird beendet; dann beginnt die Wiederholung automatisch. Weitere Klicks zählen zusätzliche Spalten.\n"
+                    : "Fortsetzungspunkt um eine Spalte zurückgesetzt. Nach Continue beginnt die Wiederholung.\n");
+            }
+            catch (Exception exception)
+            {
+                ShowOperationError("Spalte zurücksetzen fehlgeschlagen", exception);
+            }
         }
 
         private void multiShutter(int NumShutterActivations)
@@ -757,12 +903,12 @@ namespace PanoramaControlApp
         //Set Sensor Offset: the current angle is set to zero
         private void zeroXPosButton_Click(object sender, EventArgs e)
         {
-            muControllerInterface.SetAxisZeroPosition(0);
+            MessageBox.Show("Das Nullsetzen ist bis zur mechanischen Kalibrierung der Firmware-Sicherheitsgrenzen gesperrt.", "Sicherheitsgrenzen", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void zeroYPosButton_Click(object sender, EventArgs e)
         {
-            muControllerInterface.SetAxisZeroPosition(1);
+            MessageBox.Show("Das Nullsetzen ist bis zur mechanischen Kalibrierung der Firmware-Sicherheitsgrenzen gesperrt.", "Sicherheitsgrenzen", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void UseFlashResponseCheckBox_CheckedChanged(object sender, EventArgs e)
@@ -777,7 +923,7 @@ namespace PanoramaControlApp
             }
         }
 
-        private void ControlTriggerDurationCheckBox_CheckedChanged(object sender, EventArgs e)
+        private async void ControlTriggerDurationCheckBox_CheckedChanged(object sender, EventArgs e)
         {
             if (ControlTriggerDurationCheckBox.Checked ==true)
             {
@@ -787,13 +933,13 @@ namespace PanoramaControlApp
             {
                 Params.ControlledDurationTrigger = false;
             }
+            await ApplyTimingIfActiveAsync();
         }
 
         //Testing Routine for setting the servo speeds of pan and tilt axis
         private void ApplySpeedTestButton_Click(object sender, EventArgs e)
         {
-            muControllerInterface.SetServoSpeed(Params.COMPortName, Params.BTbaudrate, 0, Params.ServoSpeedX);
-            muControllerInterface.SetServoSpeed(Params.COMPortName, Params.BTbaudrate, 1, Params.ServoSpeedY);
+            ShowCommentOutput("Die eingestellten Geschwindigkeiten werden mit dem nächsten Panoramaauftrag übertragen.\n");
         }
 
         private void VibrationCheckBox_CheckedChanged(object sender, EventArgs e)
@@ -809,23 +955,512 @@ namespace PanoramaControlApp
         }
 
         //TimeLapse function
-        private void ButtonStartTimelapse_Click(object sender, EventArgs e)
+        private async void ButtonStartTimelapse_Click(object sender, EventArgs e)
         {
-            Params.TimeLapsePeriod = Convert.ToDouble(textBoxTimeLapsePeriod.Text, CultureInfo.InvariantCulture);
-            timer1.Interval = (int)(Params.TimeLapsePeriod * 1000);
-            timer1.Enabled = true;
-            timer1.Start();
+            double seconds;
+            if (!double.TryParse(textBoxTimeLapsePeriod.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out seconds) ||
+                double.IsNaN(seconds) || double.IsInfinity(seconds) || seconds < 0.1 || seconds > 3600)
+            {
+                ShowCommentOutput("Timelapse-Intervall muss zwischen 0,1 und 3600 Sekunden liegen.\n");
+                return;
+            }
+            uint intervalMs = checked((uint)Math.Round(seconds * 1000.0, MidpointRounding.AwayFromZero));
+            uint pulseMs = timelapsePulseInput == null ? 30U : (uint)timelapsePulseInput.Value;
+            if (intervalMs <= pulseMs)
+            {
+                ShowCommentOutput("Timelapse-Intervall muss länger als der eingestellte Triggerpuls sein.\n");
+                return;
+            }
+            try
+            {
+                uint runId = CreateRunId();
+                var result = await sessionController.StartTimelapseAsync(runId, intervalMs, pulseMs, CancellationToken.None);
+                if (!result.Accepted) throw new InvalidOperationException("START_TIMELAPSE abgelehnt: " + result.Code);
+                activeRunId = runId;
+                Params.TimeLapsePeriod = seconds;
+                ShowCommentOutput("Timelapse läuft autonom auf PanoDuinoControl.\n");
+            }
+            catch (Exception exception)
+            {
+                ShowOperationError("Timelapse-Start fehlgeschlagen", exception);
+            }
         }
 
-        private void ButtonStopTimeLapse_Click(object sender, EventArgs e)
+        private async void ColForwardButton_Click(object sender, EventArgs e)
         {
-            timer1.Stop();
-            timer1.Enabled = false;
+            RunState state = sessionController.CurrentStatus.State;
+            if (state != RunState.Running && state != RunState.PausePending && state != RunState.Paused)
+            {
+                ShowCommentOutput("Spalten können nur während eines laufenden oder pausierten Panoramas vorwärtsgesetzt werden.\n");
+                return;
+            }
+            try
+            {
+                var result = await sessionController.ForwardColumnsAsync(activeRunId, 1, CancellationToken.None);
+                if (!result.Accepted)
+                {
+                    if (result.Code == "LAST_COLUMN")
+                    {
+                        ShowCommentOutput("Die letzte Rasterspalte ist bereits erreicht.\n");
+                        return;
+                    }
+                    throw new InvalidOperationException("FORWARD_COLUMNS abgelehnt: " + result.Code);
+                }
+                ShowCommentOutput(result.Code == "FORWARD_PENDING"
+                    ? "Eine Spalte vorwärts vorgemerkt. Das aktuelle Bild wird beendet; dann beginnt die nächste Spalte automatisch. Weitere Klicks zählen zusätzliche Spalten.\n"
+                    : "Fortsetzungspunkt um eine Spalte vorwärtsgesetzt. Nach Continue beginnt die nächste Spalte.\n");
+            }
+            catch (Exception exception)
+            {
+                ShowOperationError("Spalte vorwärtssetzen fehlgeschlagen", exception);
+            }
         }
 
-        private void Timer1_Tick(object sender, EventArgs e)
+        private async void ButtonStopTimeLapse_Click(object sender, EventArgs e)
         {
-            PanoramaWorker.CamShutter();
+            try
+            {
+                var result = await sessionController.StopTimelapseAsync(activeRunId, CancellationToken.None);
+                if (!result.Accepted) throw new InvalidOperationException("STOP_TIMELAPSE abgelehnt: " + result.Code);
+                ShowCommentOutput("Timelapse gestoppt.\n");
+            }
+            catch (Exception exception)
+            {
+                ShowOperationError("Timelapse-Stop fehlgeschlagen", exception);
+            }
+        }
+
+        private async Task ConnectV2Async(bool useSelectedPort)
+        {
+            try
+            {
+                if (useSelectedPort && COMcomboBox.Text.Contains("COM")) Params.COMPortName = COMcomboBox.Text;
+                await sessionController.ConnectAsync(Params.COMPortName, Params.BTbaudrate, CancellationToken.None);
+                UpdateConnectionUi(sessionController.State);
+                ShowCommentOutput("Bluetooth-COM verbunden; Protokoll V2 und Sicherheitsgrenzen empfangen.\n");
+            }
+            catch (Exception exception)
+            {
+                UpdateConnectionUi(sessionController.State);
+                ShowOperationError("Bluetooth-COM-Verbindung nicht bereit", exception);
+            }
+        }
+
+        private async Task MoveManualStepAsync(double panDelta, double tiltDelta)
+        {
+            await manualMoveGate.WaitAsync();
+            try
+            {
+                double actualPan = CoordinateContract.DeviceToUi(sessionController.CurrentStatus.PanActual).ToDegrees();
+                double actualTilt = CoordinateContract.DeviceTiltToUi(sessionController.CurrentStatus.TiltActual).ToDegrees();
+                if (!sessionController.PositionSafe) manualMoveTargets.Reset();
+                manualMoveTargets.ObserveActual(actualPan, actualTilt);
+                double pan = manualMoveTargets.StepPan(panDelta);
+                double tilt = manualMoveTargets.StepTilt(tiltDelta);
+                var c = sessionController.Capabilities;
+                if (c != null && sessionController.PositionSafe)
+                {
+                    pan = Math.Max(-c.PanMaximum.ToDegrees(), Math.Min(-c.PanMinimum.ToDegrees(), pan));
+                    tilt = Math.Max(c.TiltMinimum.ToDegrees(), Math.Min(c.TiltMaximum.ToDegrees(), tilt));
+                }
+                if (Math.Abs(pan - actualPan) < .0005 && Math.Abs(tilt - actualTilt) < .0005)
+                    throw new InvalidOperationException("Grenze erreicht · in Gegenrichtung zurückfahren.");
+                if (!await SendManualMoveAsync(pan, tilt)) return;
+                manualMoveTargets.Accept(pan, tilt);
+                panel1.Invalidate();
+            }
+            finally { manualMoveGate.Release(); }
+        }
+
+        private async Task<bool> MoveManualAsync(double panDegrees, double tiltDegrees)
+        {
+            await manualMoveGate.WaitAsync();
+            try
+            {
+                if (!await SendManualMoveAsync(panDegrees, tiltDegrees)) return false;
+                manualMoveTargets.Accept(panDegrees, tiltDegrees);
+                return true;
+            }
+            finally { manualMoveGate.Release(); }
+        }
+
+        private async Task<bool> SendManualMoveAsync(double panDegrees, double tiltDegrees)
+        {
+            try
+            {
+                AngleMdeg pan = CoordinateContract.UiToDevice(AngleMdeg.FromDegrees(panDegrees));
+                AngleMdeg tilt = CoordinateContract.UiTiltToDevice(AngleMdeg.FromDegrees(tiltDegrees));
+                var result = await sessionController.ManualMoveAsync(pan, tilt, CancellationToken.None);
+                if (!result.Accepted) throw new InvalidOperationException("MANUAL_MOVE abgelehnt: " + result.Code);
+                return true;
+            }
+            catch (Exception exception)
+            {
+                ShowOperationError("Manuelle Bewegung abgelehnt", exception);
+                return false;
+            }
+        }
+
+        private void InitializeTiltLimitsControls()
+        {
+            var group = new GroupBox { Text = "Tilt-Sicherheitsgrenzen (GUI-Winkel)", Location = new Point(15, 115), Size = new Size(735, 170) };
+            var lowerLabel = new Label { Text = "Objektiv unten, °", Location = new Point(15, 32), AutoSize = true };
+            var upperLabel = new Label { Text = "Objektiv oben, °", Location = new Point(210, 32), AutoSize = true };
+            tiltMinimumInput = new NumericUpDown { Location = new Point(15, 55), Width = 110, Minimum = -55, Maximum = 50, DecimalPlaces = 3, Increment = 0.1M, Enabled = false };
+            tiltMaximumInput = new NumericUpDown { Location = new Point(210, 55), Width = 110, Minimum = -55, Maximum = 50, DecimalPlaces = 3, Increment = 0.1M, Enabled = false };
+            readTiltLimitsButton = new Button { Text = "Vom Nano lesen", Location = new Point(350, 52), Size = new Size(130, 28), Enabled = false };
+            saveTiltLimitsButton = new Button { Text = "Im Nano speichern", Location = new Point(490, 52), Size = new Size(150, 28), Enabled = false };
+            tiltLimitsStatusLabel = new Label { Text = "Keine Verbindung", Location = new Point(15, 95), AutoSize = true };
+            var boundsLabel = new Label { Text = "Verbindlich sind die bestätigten Gerätegrenzen. Tilt-Nullpunkt unter Fahrt / Referenz.",
+                Location = new Point(15, 125), AutoSize = true, ForeColor = Color.DarkOrange };
+            readTiltLimitsButton.Click += ReadTiltLimitsButton_Click;
+            saveTiltLimitsButton.Click += SaveTiltLimitsButton_Click;
+            group.Controls.AddRange(new Control[] { lowerLabel, upperLabel, tiltMinimumInput, tiltMaximumInput,
+                readTiltLimitsButton, saveTiltLimitsButton, tiltLimitsStatusLabel, boundsLabel });
+            TestTabPage.Controls.Add(group);
+        }
+
+        private void SessionController_CapabilitiesChanged(object sender, DeviceCapabilitiesEventArgs e)
+        {
+            PostToUi(() =>
+            {
+                // Tilt is positive upwards, matching the current Android contract.
+                UpdateTiltInputRange(e.Capabilities);
+                decimal lower = (decimal)CoordinateContract.DeviceTiltToUi(e.Capabilities.TiltMinimum).ToDegrees();
+                decimal upper = (decimal)CoordinateContract.DeviceTiltToUi(e.Capabilities.TiltMaximum).ToDegrees();
+                tiltMinimumInput.Value = Math.Max(tiltMinimumInput.Minimum, Math.Min(tiltMinimumInput.Maximum, lower));
+                tiltMaximumInput.Value = Math.Max(tiltMaximumInput.Minimum, Math.Min(tiltMaximumInput.Maximum, upper));
+                tiltLimitsStatusLabel.Text = "Nano meldet: " + lower.ToString("0.###", CultureInfo.CurrentCulture) +
+                    "° bis " + upper.ToString("0.###", CultureInfo.CurrentCulture) + "°";
+                UpdateTiltLimitsButtons();
+            });
+        }
+
+        private void UpdateTiltLimitsButtons()
+        {
+            if (readTiltLimitsButton == null) return;
+            bool connected = sessionController != null && sessionController.State == ConnectionState.Connected;
+            RunState state = sessionController == null ? RunState.Unknown : sessionController.CurrentStatus.State;
+            bool stopped = state == RunState.Idle || state == RunState.Stopped || state == RunState.Completed;
+            readTiltLimitsButton.Enabled = connected;
+            saveTiltLimitsButton.Enabled = connected && stopped && sessionController.Capabilities != null && sessionController.ReadinessReason.Length == 0;
+            tiltMinimumInput.Enabled = saveTiltLimitsButton.Enabled;
+            tiltMaximumInput.Enabled = saveTiltLimitsButton.Enabled;
+            if (!connected) tiltLimitsStatusLabel.Text = "Keine Verbindung";
+            else if (sessionController.Capabilities != null) tiltLimitsStatusLabel.Text = "Gerät meldet: " + sessionController.Capabilities.TiltMinimum + " bis " + sessionController.Capabilities.TiltMaximum;
+        }
+
+        private async void ReadTiltLimitsButton_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var result = await sessionController.RefreshCapabilitiesAsync(CancellationToken.None);
+                if (!result.Accepted) throw new InvalidOperationException(result.Code);
+            }
+            catch (Exception exception) { ShowOperationError("Tilt-Grenzen lesen", exception); }
+        }
+
+        private async void SaveTiltLimitsButton_Click(object sender, EventArgs e)
+        {
+            if (tiltMinimumInput.Value >= tiltMaximumInput.Value)
+            {
+                MessageBox.Show("Die untere Tilt-Grenze muss kleiner als die obere sein.", "Tilt-Grenzen", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            saveTiltLimitsButton.Enabled = false;
+            try
+            {
+                // Tilt UI and encoder coordinates have the same sign.
+                AngleMdeg deviceMinimum = CoordinateContract.UiTiltToDevice(AngleMdeg.FromDegrees((double)tiltMinimumInput.Value));
+                AngleMdeg deviceMaximum = CoordinateContract.UiTiltToDevice(AngleMdeg.FromDegrees((double)tiltMaximumInput.Value));
+                var result = await sessionController.SetTiltLimitsAsync(deviceMinimum, deviceMaximum, CancellationToken.None);
+                if (!result.Accepted) throw new InvalidOperationException(result.Code);
+                result = await sessionController.RefreshCapabilitiesAsync(CancellationToken.None);
+                if (!result.Accepted) throw new InvalidOperationException(result.Code);
+                ShowCommentOutput("Tilt-Sicherheitsgrenzen im Nano gespeichert.\n");
+            }
+            catch (Exception exception) { ShowOperationError("Tilt-Grenzen speichern", exception); }
+            finally { UpdateTiltLimitsButtons(); }
+        }
+
+        private void SessionController_Message(object sender, SessionMessageEventArgs e)
+        {
+            PostToUi(() => ShowCommentOutput(e.Message + "\n"));
+        }
+
+        private void SessionController_ConnectionStateChanged(object sender, ConnectionStateEventArgs e)
+        {
+            PostToUi(() =>
+            {
+                if (e.State != sessionController.State) return;
+                UpdateConnectionUi(e.State);
+                if (e.State != ConnectionState.Connected)
+                {
+                    runStatusReady = false;
+                    manualMoveTargets.Reset();
+                    RasterColumnValueLabel.Text = "----";
+                    RasterRowValueLabel.Text = "----";
+                }
+                SetRunButtons(sessionController.CurrentStatus.State);
+                UpdateTiltLimitsButtons();
+            });
+        }
+
+        private void UpdateConnectionUi(ConnectionState state)
+        {
+            if (state != ConnectionState.Connected) { manualMoveTargets.Reset(); positionTrace.Break(); }
+            Params.connected = state == ConnectionState.Connected;
+            ConnectButton.Enabled = state == ConnectionState.Disconnected || state == ConnectionState.Faulted;
+            DisconnectButton.Enabled = state == ConnectionState.Connected || state == ConnectionState.Reconnecting;
+            ConnectionStatusLabel.Text = "Status: " + state;
+            if (state != ConnectionState.Connected)
+                TimelapseStateLabel.Text = state == ConnectionState.Reconnecting
+                    ? "Status: Verbindung wird wiederhergestellt" : "Status: Keine Verbindung";
+            ConnectionStatusLabel.ForeColor = state == ConnectionState.Connected ? Color.DarkGreen :
+                state == ConnectionState.Reconnecting || state == ConnectionState.Connecting || state == ConnectionState.Handshaking
+                    ? Color.DarkOrange : Color.DarkRed;
+        }
+
+        private void SessionController_StatusChanged(object sender, DeviceStatusEventArgs e)
+        {
+            PostToUi(() =>
+            {
+                DeviceStatus status = e.Status;
+                if (lastReportedRunState != status.State) manualMoveTargets.Reset();
+                positionTrace.Observe(CurrentArchiveKey(status.RunId), status.PanActual.Value, status.TiltActual.Value,
+                    System.Diagnostics.Stopwatch.GetTimestamp() * 1000 / System.Diagnostics.Stopwatch.Frequency);
+                // Nach einem Neustart oder Reconnect ist der Firmwarestatus die
+                // einzige Quelle fuer Laufkennung und Bedienzustand.
+                activeRunId = status.RunId;
+                bool active = status.State == RunState.Running ||
+                    status.State == RunState.PausePending || status.State == RunState.Paused ||
+                    status.State == RunState.Timelapse;
+                Params.AcquisitionProcessExists = active;
+                Params.AcquisitionRunning = active;
+                Params.paused = status.State == RunState.PausePending || status.State == RunState.Paused;
+                runStatusReady = sessionController.State == ConnectionState.Connected;
+                Params.CurServoPosX = CoordinateContract.DeviceToUi(status.PanActual).ToDegrees();
+                Params.CurServoPosY = CoordinateContract.DeviceTiltToUi(status.TiltActual).ToDegrees();
+                manualMoveTargets.ObserveActual(Params.CurServoPosX, Params.CurServoPosY);
+                UpdateServoPosition();
+                UpdateRasterPosition(status);
+                UpdateTimelapseDisplay(status);
+                SetRunButtons(status.State);
+                UpdateTiltLimitsButtons();
+                Text = status.State == RunState.Timelapse || status.State == RunState.TimelapseStopped
+                    ? baseWindowTitle + " - Timelapse: " + status.CompletedImages + " Aufnahmen"
+                    : baseWindowTitle;
+
+                if (status.State != lastReportedRunState)
+                {
+                    ShowCommentOutput("PanoDuinoControl status: " + status.State + " (" + status.CompletedImages + "/" + status.TotalImages + ")\n");
+                    lastReportedRunState = status.State;
+                }
+
+                if (status.State == RunState.Stopped || status.State == RunState.Completed || status.State == RunState.Fault)
+                {
+                    Params.AcquisitionRunning = false;
+                    Params.AcquisitionProcessExists = false;
+                    Params.paused = false;
+                    ClosePositionLog();
+                }
+            });
+        }
+
+        private void UpdateRasterPosition(DeviceStatus status)
+        {
+            PanoramaPlan plan = sessionController.ActivePlan;
+            if (plan == null || plan.RunId != status.RunId || plan.TotalImages == 0 ||
+                status.State == RunState.Unknown || status.State == RunState.Idle ||
+                status.State == RunState.Timelapse || status.State == RunState.TimelapseStopped)
+            {
+                RasterColumnValueLabel.Text = "----";
+                RasterRowValueLabel.Text = "----";
+                return;
+            }
+
+            // Die Firmware setzt NextImageIndex beim Spaltenruecksprung neu. Der
+            // Status zeigt damit stets das aktuelle bzw. naechste Rasterziel.
+            uint imageIndex = status.NextImageIndex < plan.TotalImages
+                ? status.NextImageIndex
+                : plan.TotalImages - 1;
+            TargetPosition target = plan.GetTarget(imageIndex);
+            RasterColumnValueLabel.Text = (target.Column + 1).ToString();
+            RasterRowValueLabel.Text = (target.Row + 1).ToString();
+        }
+
+        private void UpdateTimelapseDisplay(DeviceStatus status)
+        {
+            if (status.State != RunState.Timelapse && status.State != RunState.TimelapseStopped)
+            {
+                TimelapseStateLabel.Text = sessionController.State == ConnectionState.Connected
+                    ? "Status: Bereit" : "Status: Keine Verbindung";
+                return;
+            }
+
+            TimelapseStateLabel.Text = status.State == RunState.Timelapse
+                ? "Status: Timelapse läuft" : "Status: Timelapse gestoppt";
+            if (!timelapseCountKnown || shownTimelapseRunId != status.RunId)
+            {
+                shownTimelapseRunId = status.RunId;
+                shownTimelapsePulses = status.CompletedImages;
+                timelapseCountKnown = true;
+                shutterPulseFlashTimer.Stop();
+                ShutterPulseCountLabel.ForeColor = SystemColors.ControlText;
+                LastShutterPulseLabel.Text = "Letzter Puls: --";
+            }
+            else if (status.CompletedImages > shownTimelapsePulses)
+            {
+                shownTimelapsePulses = status.CompletedImages;
+                LastShutterPulseLabel.Text = "Letzter Puls: " + DateTime.Now.ToString("HH:mm:ss");
+                ShutterPulseCountLabel.ForeColor = Color.DarkGreen;
+                shutterPulseFlashTimer.Stop();
+                shutterPulseFlashTimer.Start();
+            }
+            else if (status.CompletedImages < shownTimelapsePulses)
+            {
+                shownTimelapsePulses = status.CompletedImages;
+            }
+            ShutterPulseCountLabel.Text = "Shutter-Pulse: " + shownTimelapsePulses;
+        }
+
+        private void ScanModeComboBox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (scanModeComboBox.SelectedIndex != 0 && scanModeComboBox.SelectedIndex != 4)
+            {
+                scanModeComboBox.SelectedIndex = 0;
+                return;
+            }
+            Params.MoveModus = scanModeComboBox.SelectedIndex;
+            NumXTextBox.Enabled = Params.MoveModus != 4;
+            NumYTextBox.Enabled = Params.MoveModus != 4;
+            if (Params.ValidStartPosSet && Params.ValidEndPosSet) UpdateAcquisitionGrid();
+        }
+
+        private void ScanModeComboBox_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            if (e.Index < 0) return;
+            bool supported = e.Index == 0 || e.Index == 4;
+            bool selected = supported && (e.State & DrawItemState.Selected) != 0;
+            Color background = selected ? SystemColors.Highlight : SystemColors.Window;
+            Color foreground = !supported ? SystemColors.GrayText :
+                selected ? SystemColors.HighlightText : SystemColors.WindowText;
+            using (SolidBrush brush = new SolidBrush(background))
+                e.Graphics.FillRectangle(brush, e.Bounds);
+            TextRenderer.DrawText(e.Graphics, scanModeComboBox.Items[e.Index].ToString(),
+                e.Font, e.Bounds, foreground, TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+            if (selected) e.DrawFocusRectangle();
+        }
+
+        private void SessionController_DiagnosticsChanged(object sender, DeviceDiagnosticsEventArgs e)
+        {
+            DeviceDiagnostics diagnostics = e.Diagnostics;
+            PostToUi(() =>
+            {
+                double targetPan = CoordinateContract.DeviceToUi(diagnostics.PanTarget).ToDegrees();
+                double targetTilt = CoordinateContract.DeviceTiltToUi(diagnostics.TiltTarget).ToDegrees();
+                double actualPan = CoordinateContract.DeviceToUi(diagnostics.PanActual).ToDegrees();
+                double actualTilt = CoordinateContract.DeviceTiltToUi(diagnostics.TiltActual).ToDegrees();
+                ShowCommentOutput(
+                    "Diagnose: " + diagnostics.Phase +
+                    ", Ziel " + targetPan.ToString("0.000", CultureInfo.InvariantCulture) + "°/" + targetTilt.ToString("0.000", CultureInfo.InvariantCulture) + "°" +
+                    ", Ist " + actualPan.ToString("0.000", CultureInfo.InvariantCulture) + "°/" + actualTilt.ToString("0.000", CultureInfo.InvariantCulture) + "°" +
+                    ", stabil " + diagnostics.StableSamples + "/" + diagnostics.RequiredStableSamples +
+                    ", Bewegung " + diagnostics.MovementElapsedMs + " ms" +
+                    (diagnostics.CurrentFreeRamBytes == 0
+                        ? ".\n"
+                        : ", RAM frei " + diagnostics.CurrentFreeRamBytes + " B, Minimum " + diagnostics.MinimumFreeRamBytes + " B.\n"));
+            });
+        }
+
+        private void SessionController_RunEventReceived(object sender, RunEventEventArgs e)
+        {
+            RunEvent imageEvent = e.RunEvent;
+            if (imageEvent.EventType != "IMAGE_COMPLETED" && imageEvent.EventType != "MANUAL_IMAGE_TRIGGERED") return;
+            ArchiveCapture(imageEvent);
+            if (imageEvent.Manual && imageEvent.RunId == 0) return;
+            if (activeRunId == 0) activeRunId = imageEvent.RunId;
+            if (imageEvent.RunId != activeRunId) return;
+            EnsurePositionLog();
+            uint exportId;
+            if (!runExporter.TryExport(imageEvent, out exportId)) return;
+            PostToUi(() =>
+            {
+                Params.ImageNum = checked((int)exportId + 1);
+                double pan = CoordinateContract.DeviceToUi(imageEvent.Pan).ToDegrees();
+                double tilt = CoordinateContract.DeviceTiltToUi(imageEvent.Tilt).ToDegrees();
+                DrawCapturePoint(pan, tilt);
+                panel1.Invalidate();
+                if (imageEvent.Reconstructed)
+                {
+                    ShowCommentOutput("Rasteraufnahme " + imageEvent.CaptureSequence + " nach Verbindungsunterbrechung rekonstruiert.\n");
+                }
+                if (imageEvent.Manual)
+                {
+                    ShowCommentOutput("Manuelle Aufnahme während der Pause protokolliert.\n");
+                }
+            });
+        }
+
+        private bool ManualMovementAllowed()
+        {
+            return sessionController != null && sessionController.NavigationReason.Length == 0;
+        }
+
+        private void SetRunButtons(RunState state)
+        {
+            if (!runStatusReady || !sessionController.StatusFresh || sessionController.ReadinessReason.Length > 0)
+            {
+                StartButton.Enabled = false;
+                StopButton.Enabled = false;
+                PauseButton.Enabled = false;
+                ContinueButton.Enabled = false;
+                button1TimelapseStart.Enabled = false;
+                buttonStopTimeLapse.Enabled = false;
+                ColBackButton.Enabled = false;
+                ColForwardButton.Enabled = false;
+                return;
+            }
+            bool active = state == RunState.Running || state == RunState.PausePending || state == RunState.Paused;
+            StartButton.Enabled = state == RunState.PlanReady && !DraftDiffersFromLoaded;
+            StopButton.Enabled = active;
+            PauseButton.Enabled = state == RunState.Running;
+            ContinueButton.Enabled = state == RunState.Paused;
+            button1TimelapseStart.Enabled = state == RunState.Idle;
+            buttonStopTimeLapse.Enabled = state == RunState.Timelapse;
+            bool columnsSupported = sessionController.ActivePlan == null || sessionController.ActivePlan.MoveMode == MoveMode.ColumnReturn;
+            ColBackButton.Enabled = active && columnsSupported;
+            ColForwardButton.Enabled = active && columnsSupported;
+        }
+
+        private void ClosePositionLog()
+        {
+            runExporter.CompleteRun();
+        }
+
+        private void EnsurePositionLog()
+        {
+            runExporter.BeginRun();
+        }
+
+        private void ShowOperationError(string operation, Exception exception)
+        {
+            ShowCommentOutput(operation + ": " + exception.Message + "\n");
+        }
+
+        private void PostToUi(Action action)
+        {
+            if (IsDisposed || Disposing || !IsHandleCreated) return;
+            if (InvokeRequired) BeginInvoke(action);
+            else action();
+        }
+
+        private uint CreateRunId()
+        {
+            long ticks = DateTime.UtcNow.Ticks;
+            uint result = unchecked((uint)(ticks ^ (ticks >> 32)));
+            if (result == 0 || result == activeRunId) result++;
+            return result;
         }
 
         //Validate integer parameter inputs
@@ -866,8 +1501,9 @@ namespace PanoramaControlApp
             {
                 if (_Data != null)
                 {
-                    StringValue = _Data.ToString();
-                    _val = double.Parse(StringValue, System.Globalization.NumberStyles.AllowDecimalPoint, System.Globalization.NumberFormatInfo.InvariantInfo);
+                    StringValue = _Data.ToString().Replace(',', '.');
+                    _val = double.Parse(StringValue, System.Globalization.NumberStyles.Float, System.Globalization.NumberFormatInfo.InvariantInfo);
+                    if (double.IsNaN(_val) || double.IsInfinity(_val)) throw new FormatException("Bitte eine endliche Zahl eingeben.");
 
                     if (_val < _MinVal)
                         _val = _MinVal;
@@ -889,6 +1525,15 @@ namespace PanoramaControlApp
         private void PanoControlForm_Load(object sender, EventArgs e)
         {
 
+        }
+    }
+
+    internal sealed class BufferedPanel : Panel
+    {
+        public BufferedPanel()
+        {
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.OptimizedDoubleBuffer, true);
         }
     }
 }

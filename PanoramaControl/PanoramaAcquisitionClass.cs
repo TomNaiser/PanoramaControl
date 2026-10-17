@@ -42,7 +42,9 @@ namespace PanoramaControlApp
         public OnShowCommentOutputDelegate OnShowCommentOutput { get; set; }
         public void ShowNewCommentInGUI(String commentText,object sender)
         {
+
             //OnShowCommentOutput(commentText); //then call the callback  
+            /*
             ((BackgroundWorker) sender).ReportProgress(0, new InterfaceClassAcquisition2UI
             {
                 ServoXPos = 0,
@@ -50,7 +52,19 @@ namespace PanoramaControlApp
                 UpdateServoPos = false,
                 CommentText = commentText,
                 UpdateCommentText = true
-            });
+            });*/
+            var worker = sender as BackgroundWorker;
+            if (worker != null && worker.IsBusy)
+            {
+                worker.ReportProgress(0, new InterfaceClassAcquisition2UI
+                {
+                    ServoXPos = 0,
+                    ServoYPos = 0,
+                    UpdateServoPos = false,
+                    CommentText = commentText,
+                    UpdateCommentText = true
+                });
+            }
         }
 
         //Parameters in angle degrees
