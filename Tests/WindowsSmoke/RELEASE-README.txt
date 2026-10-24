@@ -1,5 +1,8 @@
-PanoramaControl 27.4.3 für Windows
-17. Oktober 2026
+PanoramaControl 27.4.4 für Windows
+22. Oktober 2026
+
+Bluetooth-Kommandos werden außerhalb des UI-Threads geschrieben. Status,
+Quittierungen und Protokoll-Abbruch warten nicht auf den seriellen Schreibvorgang.
 
 Start: PanoramaControl.exe. Benötigt Windows x64 und .NET Framework 4.8.
 Alle Dateien des Pakets zusammen entpacken. Die Beispielkonfiguration nutzt COM4.

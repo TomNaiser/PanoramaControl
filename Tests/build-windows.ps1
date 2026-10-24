@@ -5,7 +5,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoDirectory = Split-Path -Parent $PSScriptRoot
-if (!$OutputDirectory) { $OutputDirectory = Join-Path $repoDirectory 'releases/27.4.3' }
+if (!$OutputDirectory) { $OutputDirectory = Join-Path $repoDirectory 'releases/27.4.4' }
 $OutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
 
 function Run-Checked([string]$Executable, [string[]]$Arguments) {
@@ -30,12 +30,12 @@ if (!(Test-Path -LiteralPath $configPath)) {
     $configuration.configuration.appSettings.COMPort = $DefaultPort
     $configuration.Save($configPath)
 }
-Copy-Item -LiteralPath (Join-Path $repoDirectory 'WINDOWS-27.4.3-RASTERVORSCHAU.md') -Destination (Join-Path $OutputDirectory 'ABNAHME.md') -Force
+Copy-Item -LiteralPath (Join-Path $repoDirectory 'WINDOWS-27.4.4-ROBUSTHEIT.md') -Destination (Join-Path $OutputDirectory 'ABNAHME.md') -Force
 Copy-Item -LiteralPath (Join-Path $repoDirectory 'WINDOWS-27.4.2-BEDIENUNG.md') -Destination $OutputDirectory -Force
 Copy-Item -LiteralPath (Join-Path $repoDirectory 'WINDOWS-27.4.1-ABGLEICH.md') -Destination $OutputDirectory -Force
 Copy-Item -LiteralPath (Join-Path $repoDirectory 'WINDOWS-27.4.0-ABNAHME.md') -Destination $OutputDirectory -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'WindowsSmoke/RELEASE-README.txt') -Destination (Join-Path $OutputDirectory 'README.txt') -Force
-$zipPath = Join-Path (Split-Path -Parent $OutputDirectory) 'PanoramaControl-27.4.3.zip'
+$zipPath = Join-Path (Split-Path -Parent $OutputDirectory) 'PanoramaControl-27.4.4.zip'
 Compress-Archive -Path (Join-Path $OutputDirectory '*') -DestinationPath $zipPath -Force
 Write-Output "Windows-Paket: $OutputDirectory"
 Write-Output "ZIP: $zipPath"

@@ -70,7 +70,7 @@ namespace PanoramaControlApp
             VibDelayTextBox.KeyDown += TimingTextBox_KeyDown;
             ExpDelayTextBox.KeyDown += TimingTextBox_KeyDown;
             CamTriggerDurationTextBox.KeyDown += TimingTextBox_KeyDown;
-            baseWindowTitle = "PanoramaControl 27.4.3 · Android-Funktionsabgleich";
+            baseWindowTitle = "PanoramaControl 27.4.4 · Android-Funktionsabgleich";
             sessionController = new PanoramaSessionController(transport, stateDirectory == null ? null : System.IO.Path.Combine(stateDirectory, "SupportLogs"));
             sessionController.Message += SessionController_Message;
             sessionController.ConnectionStateChanged += SessionController_ConnectionStateChanged;
@@ -284,6 +284,11 @@ namespace PanoramaControlApp
 
         private async void SetStartPointButton_Click(object sender, EventArgs e)
         {
+            await SetStartPointAsync();
+        }
+
+        private async Task SetStartPointAsync()
+        {
             if (!await PrepareRememberAsync()) return;
             //set start point for the panorama acquisition
             Params.StartPosX = Params.CurServoPosX;
@@ -309,6 +314,11 @@ namespace PanoramaControlApp
         }
 
         private async void SetEndPointButton_Click(object sender, EventArgs e)
+        {
+            await SetEndPointAsync();
+        }
+
+        private async Task SetEndPointAsync()
         {
             if (!await PrepareRememberAsync()) return;
             //set end point for the panorama acquisition

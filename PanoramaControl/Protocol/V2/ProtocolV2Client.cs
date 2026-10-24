@@ -15,6 +15,7 @@ namespace PanoramaControlApp.Protocol.V2
         private readonly ISerialTransport _transport;
         private readonly SemaphoreSlim _sendLock = new SemaphoreSlim(1, 1);
         private readonly object _pendingSync = new object();
+        private readonly object _writeSync = new object();
         private PendingCommand _pending;
         private ushort _nextSequence = 1;
         private bool _disposed;
@@ -70,12 +71,7 @@ namespace PanoramaControlApp.Protocol.V2
                 for (int attempt = 0; attempt <= MaximumRetries; attempt++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    lock (_pendingSync)
-                    {
-                        if (_pending != request) throw new OperationCanceledException("Durch Not-Stop verworfen; Befehl nicht wiederholen.");
-                        RaiseTrace("TX", encoded, "attempt=" + (attempt + 1));
-                        _transport.Send(encoded);
-                    }
+                    await SendFrameAsync(request, encoded, "attempt=" + (attempt + 1), cancellationToken).ConfigureAwait(false);
                     Task finished = await Task.WhenAny(completion.Task, Task.Delay(ResponseTimeoutMs, cancellationToken)).ConfigureAwait(false);
                     if (finished == completion.Task)
                     {
@@ -110,12 +106,7 @@ namespace PanoramaControlApp.Protocol.V2
                 for (int attempt = 0; attempt <= MaximumRetries; attempt++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    lock (_pendingSync)
-                    {
-                        if (_pending != request) throw new OperationCanceledException("Durch neueren Not-Stop verworfen.");
-                        RaiseTrace("TX", encoded, "priority attempt=" + (attempt + 1));
-                        _transport.Send(encoded);
-                    }
+                    await SendFrameAsync(request, encoded, "priority attempt=" + (attempt + 1), cancellationToken).ConfigureAwait(false);
                     Task finished = await Task.WhenAny(request.Completion.Task, Task.Delay(ResponseTimeoutMs, cancellationToken)).ConfigureAwait(false);
                     if (finished == request.Completion.Task) return await request.Completion.Task.ConfigureAwait(false);
                 }
@@ -127,13 +118,37 @@ namespace PanoramaControlApp.Protocol.V2
             }
         }
 
+        private Task SendFrameAsync(PendingCommand request, string encoded, string detail, CancellationToken cancellationToken)
+        {
+            // SerialPort.Write can wait for its platform timeout. Never run it on the UI
+            // thread or under the lock needed by ACK delivery, cancellation and disposal.
+            return Task.Run(() =>
+            {
+                lock (_writeSync)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    lock (_pendingSync)
+                    {
+                        if (_pending != request || _disposed)
+                            throw new OperationCanceledException("Alte Aktion verworfen; Befehl nicht wiederholen.");
+                    }
+                    RaiseTrace("TX", encoded, detail);
+                    _transport.Send(encoded);
+                }
+            }, cancellationToken);
+        }
+
         public void SendUnconfirmed(string messageType, params string[] fields)
         {
             ThrowIfDisposed();
             ushort sequence = NextSequence();
             string encoded = ProtocolFrameCodec.Encode(new ProtocolFrame(sequence, messageType, fields));
-            RaiseTrace("TX", encoded, "unconfirmed");
-            _transport.Send(encoded);
+            lock (_writeSync)
+            {
+                ThrowIfDisposed();
+                RaiseTrace("TX", encoded, "unconfirmed");
+                _transport.Send(encoded);
+            }
         }
 
         private void TransportLineReceived(object sender, SerialLineReceivedEventArgs eventArgs)

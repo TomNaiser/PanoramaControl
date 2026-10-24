@@ -13,10 +13,15 @@ namespace ProtocolTests
     {
         private static int _tests;
 
-        private static int Main()
+        private static int Main(string[] args)
         {
             try
             {
+                if (args.Length > 0 && args[0] == "--blocked-transport")
+                {
+                    Console.WriteLine("OK: " + TransportRobustnessTests.Run() + " Transport-Pruefungen erfolgreich.");
+                    return 0;
+                }
                 TestCrcReferenceVector();
                 TestFrameRoundTrip();
                 TestCorruptFrameIsRejected();
@@ -36,6 +41,7 @@ namespace ProtocolTests
                 TestCommandAckAndRetry();
                 TestCommandNack();
                 TestEmergencyStopPreemptsPendingCommand();
+                _tests += TransportRobustnessTests.Run();
                 _tests += CurrentFeaturesTests.Run();
                 Console.WriteLine("OK: " + _tests + " Tests erfolgreich.");
                 return 0;
@@ -378,6 +384,7 @@ namespace ProtocolTests
             using (var client = new ProtocolV2Client(transport) { ResponseTimeoutMs = 1000 })
             {
                 var move = client.SendCommandAsync("MANUAL_MOVE", CancellationToken.None, "1000", "0");
+                AssertTrue(SpinWait.SpinUntil(() => transport.SendCount == 1, 1000), "Fahrt wird asynchron gesendet");
                 AssertEqual(1, transport.SendCount, "Fahrt wartet auf ACK");
                 var queued = client.SendCommandAsync("TRIGGER_ONCE", CancellationToken.None, "30");
                 var stop = client.SendCommandAsync("ESTOP", CancellationToken.None, "0", "TEST");

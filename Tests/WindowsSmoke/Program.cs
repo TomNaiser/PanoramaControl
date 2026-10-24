@@ -35,6 +35,16 @@ namespace WindowsSmoke
             DateTime end = DateTime.UtcNow.AddMilliseconds(milliseconds);
             while (DateTime.UtcNow < end) { simulator.Status(); Application.DoEvents(); Thread.Sleep(25); }
         }
+        private static void PumpUntil(Func<bool> completed)
+        {
+            DateTime deadline = DateTime.UtcNow.AddSeconds(8);
+            while (!completed())
+            {
+                Application.DoEvents(); Thread.Sleep(10);
+                if (DateTime.UtcNow > deadline) throw new TimeoutException("Asynchrone UI-Aktion ohne Abschluss");
+            }
+            Application.DoEvents();
+        }
         private static void Mouse(Control control, string method, MouseButtons button = MouseButtons.Left)
         {
             typeof(Control).GetMethod(method, BindingFlags.NonPublic | BindingFlags.Instance).Invoke(control,
@@ -53,14 +63,15 @@ namespace WindowsSmoke
                     ((LocalSettings)Field(form, "localSettings")).Set("rememberMs", "0");
                     Pump(controller.ConnectAsync("SIM", 115200, CancellationToken.None));
                     simulator.Pan = -5780; simulator.Tilt = 13070; simulator.Status(); Application.DoEvents();
-                    ((Button)Field(form, "SetStartPointButton")).PerformClick(); Application.DoEvents();
+                    Pump((Task)Call(form, "SetStartPointAsync"));
                     simulator.Pan = 24680; simulator.Tilt = 1450; simulator.Status(); Application.DoEvents();
-                    ((Button)Field(form, "SetEndPointButton")).PerformClick(); Application.DoEvents();
+                    Pump((Task)Call(form, "SetEndPointAsync"));
                     Render(form, "endpoints-automatic", directory);
                     var draft = (PanoramaPlan)Field(form, "previewPlan");
                     Check(draft != null && draft.StartPan.Value == -5780 && draft.StartTilt.Value == 13070 && draft.TotalImages > 1,
                         "Nach Start und Ende muss automatisch der neue Fahrplan gezeichnet werden, ohne Vorschau-Klick");
                     Check(((PointF[])Field(form, "cachedPlanPoints")).Length == draft.TotalImages, "Neues Zielpunktraster wird tatsächlich gerendert");
+                    PumpUntil(() => ((Button)Field(form, "uploadButton")).Enabled);
                     Check(((Button)Field(form, "uploadButton")).Enabled, "Automatisch berechneter Fahrplan sofort übertragbar");
                     var panel = (Panel)Field(form, "panel1");
                     double sx = Params.StartPosX, sy = Params.StartPosY, ex = Params.EndPosX, ey = Params.EndPosY;
@@ -87,7 +98,7 @@ namespace WindowsSmoke
                     Check(controller.ActivePlan.ToProtocolFields().Skip(1).SequenceEqual(draft.ToProtocolFields().Skip(1)), "Ohne Vorschau-Klick exakt das automatisch gezeichnete Rezept übertragen");
                     uint firstRun = controller.ActivePlan.RunId;
                     simulator.Pan = 18000; simulator.Tilt = -2000; simulator.Status(); Application.DoEvents();
-                    ((Button)Field(form, "SetEndPointButton")).PerformClick(); Application.DoEvents();
+                    Pump((Task)Call(form, "SetEndPointAsync"));
                     Render(form, "changed-loaded-draft", directory);
                     var changed = (PanoramaPlan)Field(form, "previewPlan");
                     Check(changed != null && ReferenceEquals(Field(form, "cachedPlotPlan"), changed) && controller.ActivePlan.RunId == firstRun,
@@ -134,6 +145,9 @@ namespace WindowsSmoke
         {
             if (args.Length > 0 && args[0].StartsWith("--")) return HardwareChecks.Run(args);
             Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
+            // This off-screen harness pumps messages without Application.Run.
+            // Install the same continuation context as the real WinForms app.
+            SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
             if (args.Length > 0 && args[0] == "preview-repro") return PreviewRepro(Path.GetFullPath(args[1]));
             string directory = Path.GetFullPath(args.Length > 0 ? args[0] : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "artifacts")); Directory.CreateDirectory(directory);
             string stateDirectory = Path.Combine(directory, "state-" + Guid.NewGuid().ToString("N"));
@@ -175,10 +189,10 @@ namespace WindowsSmoke
                     Check(simulator.LastManualFields[1] == "100", "Nach Zielfehler wird das alte Ziel verworfen und vom Istwert aus gefahren");
                     simulator.FinishManual(); Application.DoEvents(); Call(form, "RefreshCurrentState");
                     Pump((Task)Call(form, "PrepareRememberAsync"));
-                    Call(form, "SetStartPointButton_Click", form, EventArgs.Empty); Application.DoEvents();
+                    Pump((Task)Call(form, "SetStartPointAsync"));
                     Check(Params.ValidStartPosSet, "Start aus frischem Gerätewert merken");
                     simulator.Pan = -1000; simulator.Tilt = 1000; simulator.Status(); Application.DoEvents();
-                    Call(form, "SetEndPointButton_Click", form, EventArgs.Empty); Application.DoEvents();
+                    Pump((Task)Call(form, "SetEndPointAsync"));
                     Check(Params.ValidEndPosSet && Params.EndPosY == 1, "Endpunkt in aktueller Tilt-Richtung");
                     Pump((Task)Call(form, "UploadPlanAsync")); Call(form, "RefreshCurrentState");
                     Check(controller.CurrentStatus.State == RunState.PlanReady && ((Button)Field(form, "StartButton")).Enabled, "Übertragen getrennt von Start");
@@ -187,6 +201,7 @@ namespace WindowsSmoke
                     int directMoves = simulator.Commands.Count(x => x == "MANUAL_MOVE");
                     typeof(Control).GetMethod("OnMouseDown", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(panel,
                         new object[] { new MouseEventArgs(MouseButtons.Left, 1, panel.Width / 2, panel.Height / 2, 0) }); Application.DoEvents();
+                    PumpUntil(() => simulator.Commands.Count(x => x == "MANUAL_MOVE") == directMoves + 1 && !controller.Busy);
                     Check(simulator.Commands.Count(x => x == "MANUAL_MOVE") == directMoves + 1, "Diagrammklick fährt wie alte GUI direkt");
                     Check(controller.ActivePlan != null && controller.CurrentStatus.State == RunState.PlanReady && Params.CurServoPosY == 1,
                         "Direkte Navigation erhält Geräteplan und zeigt weiterhin gemessene Istposition");
@@ -217,6 +232,7 @@ namespace WindowsSmoke
                     int startsBefore = simulator.Commands.Count(x => x == "MANUAL_JOG_START_VELOCITY");
                     int targetMovesBefore = simulator.Commands.Count(x => x == "MANUAL_MOVE");
                     Mouse(arrow, "OnMouseDown"); Application.DoEvents();
+                    PumpUntil(() => simulator.Commands.Count(x => x == "MANUAL_JOG_START_VELOCITY") == startsBefore + 1 && !controller.Busy);
                     Check(controller.JogActive && simulator.LastJogFields[1] == "1" && simulator.LastJogFields[2] == "1" && simulator.LastJogFields[3] == "5000",
                         "Pfeil ↑ startet Android-Haltefahrt mit Tilt-Höchsttempo 5 Grad/s");
                     PumpFor(simulator, 1100);
@@ -235,6 +251,7 @@ namespace WindowsSmoke
                     Check(simulator.Commands.Count(x => x == "MANUAL_JOG_START_VELOCITY") == startsBefore, "Rückkehr und Loslassen nach Verlassen startet keine neue Fahrt");
                     startsBefore = simulator.Commands.Count(x => x == "MANUAL_JOG_START_VELOCITY");
                     Call(arrow, "OnKeyDown", new KeyEventArgs(Keys.Left)); Call(arrow, "OnKeyDown", new KeyEventArgs(Keys.Left)); Application.DoEvents();
+                    PumpUntil(() => simulator.Commands.Count(x => x == "MANUAL_JOG_START_VELOCITY") == startsBefore + 1 && !controller.Busy);
                     Check(controller.JogActive && simulator.LastJogFields[1] == "0" && simulator.LastJogFields[2] == "-1" && simulator.LastJogFields[3] == "10000" &&
                         simulator.Commands.Count(x => x == "MANUAL_JOG_START_VELOCITY") == startsBefore + 1, "Richtungstaste startet Pan links einmalig; Tastenwiederholung startet nicht neu");
                     Call(arrow, "OnKeyUp", new KeyEventArgs(Keys.Left)); Application.DoEvents();

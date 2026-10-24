@@ -103,7 +103,7 @@ namespace PanoramaControlApp
             localSettings = new LocalSettings(Path.Combine(directory, "settings-v2.xml"));
             archive = new RunArchive(Path.Combine(directory, "Runs"));
             if (localSettings.LoadError != null) ShowCommentOutput("Einstellungen konnten nicht gelesen werden: " + localSettings.LoadError + "\n");
-            Text = "PanoramaControl 27.4.3 · Android-Funktionsabgleich";
+            Text = "PanoramaControl 27.4.4 · Android-Funktionsabgleich";
             AutoScroll = true;
             emergencyButton = new Button { Name = "EmergencyStop", Text = "NOT-STOP", Location = new Point(963, 4), Size = new Size(93, 42), BackColor = Color.Firebrick, ForeColor = Color.White, UseVisualStyleBackColor = false, TabStop = true };
             emergencyButton.Click += async (s, e) => await UiActionAsync(EmergencyStopUiAsync);
