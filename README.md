@@ -1,37 +1,40 @@
 # PanoramaControl
 
-Windows **27.4.4**, 22. Oktober 2026: [Asynchrones Bluetooth-Schreiben ohne blockierte Protokoll-Abbruchroutine](WINDOWS-27.4.4-ROBUSTHEIT.md). 192 Protokoll-/Controller-Prüfungen und 115 simulierte UI-Prüfungen bestanden. Die folgenden Angaben beschreiben frühere Stände.
+Windows-Forms-Bedienung für den motorisierten Pan-/Tilt-Panoramakopf mit PanoDuinoControl-Firmware. Aktueller Quellstand: **27.4.4**, Zielplattform **.NET Framework 4.8**, Protokoll V2.
 
-Windows **27.4.3**, 17. Oktober 2026: [Automatische Rastervorschau nach Start/Ende, eindeutige Endpunktanzeige und unmittelbare Übertragung des neuen Entwurfs](WINDOWS-27.4.3-RASTERVORSCHAU.md). [Tilt-Anzeige ±25°, klassische Klicknavigation und Android-Haltepfeile](WINDOWS-27.4.2-BEDIENUNG.md) bleiben erhalten. [Funktionszuordnung zu Android 0.6.19](WINDOWS-27.4.1-ABGLEICH.md), [bisherige Geräteprüfung und offene Hardwarepunkte](WINDOWS-27.4.0-ABNAHME.md); reproduzierbarer Paketbuild mit `pwsh -File Tests/build-windows.ps1`. Die Firmware wurde nicht geändert. Die folgenden Angaben beschreiben den historischen Projektstand.
+## Einstieg
 
-PanoramaControl is an open-source control software for motorized pan/tilt panorama heads.
-I have developed the software over almost 10 years, together with the corresponding hardware (which is presented here: https://sites.google.com/site/thomasnaiser/home/gigapixel-hardware)
+Aktives Projekt: [PanoramaControl Version 27.csproj](PanoramaControl/PanoramaControl%20Version%2027.csproj). Das Version-26-Projekt und ältere Kommunikationsklassen sind historische beziehungsweise weiterhin eingebundene Kompatibilitätspfade und nicht das aktuelle Auslieferungsziel.
 
-PanoramaControl is written in C# (VisualStudio 2017), its graphical user interface is based on Windows Forms. The software has been tested with Microsoft Windows (versions 7, 8 and 10). I am operating PanoramaControl from a small intel atom based netbook. Via a wireless connection (Bluetooth) position and camera(shutter)-commands are sent to the automated panorama head.  The motorized panorama platform is controlled by a microcontroller - currently an Arduino Mega 2560 is in use. 
+Raster- und sphärische Planung, getrenntes Übertragen/Starten, manuelle Ziel-/Haltefahrt, Pause/Fortsetzen, Spaltennavigation, Live-Zeiten, Timelapse, Kameraprofile, Warnpunkte und gespeicherte Läufe sind umgesetzt. Die Geräteposition stammt aus Statusmeldungen, nicht aus einem ACK.
 
-The arduino sketch PanoDuinoControl (another project of mine that can be found here on Github) handles the communication with PanoControl, and operates the RC-servos, position encoders and camera shutters. Cameras require a remote shutter release which can be triggered by the microcontroller.
+27.4.4 verlagert serielle Writes aus dem UI-Thread und der ACK-/Abbruchsperre. Der dokumentierte Stand bestand **192 Protokoll-/Controller- und 115 simulierte WinForms-Prüfungen**.
 
+## Bauen und prüfen
 
-Features:
+```powershell
+dotnet run --project Tests/ProtocolTests/ProtocolTests.csproj
+pwsh -File Tests/build-windows.ps1
+```
 
--software is tailored for ease of use, with a focus on the acquisition of gigapixel panoramas comprising thousands of single shots 
+Hosttests benötigen .NET 8; die eigentliche WinForms-Anwendung bleibt .NET Framework 4.8. Das Paketskript führt simulierte UI-Tests aus und erzeugt `releases/27.4.4` sowie ein ZIP. Es startet keine reale Fahrreihe.
 
--configuration of stitching parameters for various cameras and camera/lens-combinations (e.g. Sony A7 with various lenses, Lumix FZ200, Lumix FZ28)
+## Daten und Konfiguration
 
--adjustable timing, overlap parameters
+Aktuelle Einstellungen und Capture-Journale liegen unter `%LOCALAPPDATA%/PanoramaControl/`. `PanoControlConfig.xml` neben der Anwendung enthält die bestehende Konfiguration; die versionierte Datei ist ein Beispiel und ersetzt keine persönliche Sicherung.
 
--configuration (new cameras etc.) can be set in PanoControlConfig.xml
+Das Journal ist prüfsummengeschützt. Der klassische Live-Papywizard-Writer schließt sein XML erst bei Abschluss; ein vollständiger Journal-Snapshot ist ein gesonderter Exportweg. Die laufende atomare XML-Sicherung und die umfassende Fault-Restauftragsführung der neuesten Android-App sind noch nicht portiert.
 
--enter start- and end-positions for panorama acquisition
+## Versionshinweise
 
--start/stop/pause acquisition 
+- [27.4.4: blockierender Transport](docs/history/WINDOWS-27.4.4-ROBUSTHEIT.md)
+- [27.4.3: Rastervorschau](docs/history/WINDOWS-27.4.3-RASTERVORSCHAU.md)
+- [27.4.2: Bedienung](docs/history/WINDOWS-27.4.2-BEDIENUNG.md)
+- [27.4.1: Funktionsabgleich](docs/history/WINDOWS-27.4.1-ABGLEICH.md)
+- [27.4.0: Umsetzung und Prüfgrenzen](docs/history/WINDOWS-27.4.0-ABNAHME.md)
 
--timelapse mode
+Das Gesamtprojekt bietet eine [englische Übersicht](https://github.com/TomNaiser/PanoramaSoftware/blob/main/README.md), ein [kurzes englisches Manual](https://github.com/TomNaiser/PanoramaSoftware/blob/main/docs/en/manual.md) und das [ausführliche deutsche Handbuch](https://github.com/TomNaiser/PanoramaSoftware/blob/main/docs/README.md). Persönliche Benutzerdateien, Buildpakete und Laufexporte werden nicht mit den Quellen verteilt.
 
--recording of exact shoot positions (based on position encoder readings) for import professional stitiching software
+Zur Projektgeschichte und den früheren Aufbauten: [Hardwarebeschreibung](https://sites.google.com/site/thomasnaiser/home/gigapixel-hardware) und [PanoBoard-Repository](https://github.com/TomNaiser/PanoBoard). Die aktuelle Softwarebelegung und die Grenzen der heutigen Hardwareprüfung stehen im gemeinsamen Handbuch.
 
--wireless communication with microcontroller-based panorama head 
-
--can be extended to various acquisition modes (default: flat panorama for large gigapixel panoramas) . I didn't care much about spherical 
- panoramas (not very well implemented yet), but a proper implementation shouldn't be too difficult.
-
+Lizenz: [MIT](LICENSE). Firmware: [PanoDuinoControl](https://github.com/TomNaiser/PanoDuinoControl).

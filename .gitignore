@@ -332,3 +332,13 @@ ASALocalRun/
 # Ephemeral simulator state; retain the deliberate test reports and screenshots.
 /Tests/WindowsSmoke/preview-repro/preview-*/
 /Tests/WindowsSmoke/hardware/owned-run.txt
+
+# Runtime exports; release packages are distributed separately from sources.
+/PanoData*.xml
+/DataPanoData*.xml
+/CaptureManifest*.csv
+/PanoramaControl/PanoData*.xml
+/PanoramaControl/DataPanoData*.xml
+/PanoramaControl/CaptureManifest*.csv
+*.panojournal
+/docs/history/README-bis-*.md
