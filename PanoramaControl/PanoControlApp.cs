@@ -15,7 +15,11 @@ namespace PanoramaControlApp
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new PanoControlForm());
+            try { Application.Run(new PanoControlForm()); }
+            catch (DllNotFoundException)
+            { MessageBox.Show("PanoramaControl benötigt Windows 10/11 x64 mit winsqlite3.dll und .NET Framework 4.8.", "PanoramaControl", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            catch (System.IO.IOException ex)
+            { MessageBox.Show("Das lokale Aufnahmearchiv konnte nicht geöffnet werden. Vorhandene Daten bleiben erhalten.\n\n" + ex.Message, "PanoramaControl", MessageBoxButtons.OK, MessageBoxIcon.Error); }
         }
     }
 }

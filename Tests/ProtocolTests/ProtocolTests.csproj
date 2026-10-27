@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -37,5 +37,14 @@
     <Compile Include="..\..\PanoramaControl\Domain\DeviceStatus.cs" Link="Domain/DeviceStatus.cs" />
     <Compile Include="..\..\PanoramaControl\Domain\DeviceDiagnostics.cs" Link="Domain/DeviceDiagnostics.cs" />
     <Compile Include="..\..\PanoramaControl\Communication\ConnectionState.cs" Link="Communication/ConnectionState.cs" />
+    <Compile Include="..\..\PanoramaControl\Application\SqliteDatabase.cs" Link="Application/SqliteDatabase.cs" />
+    <Compile Include="..\..\PanoramaControl\Application\RunStore.cs" Link="Application/RunStore.cs" />
+    <Compile Include="..\..\PanoramaControl\Application\RunRecovery.cs" Link="Application/RunRecovery.cs" />
+    <Compile Include="..\..\PanoramaControl\Application\RunExport.cs" Link="Application/RunExport.cs" />
+    <Compile Include="..\..\PanoramaControl\Application\LiveRunBackup.cs" Link="Application/LiveRunBackup.cs" />
+    <Compile Include="..\..\PanoramaControl\Application\DeviceIdentity.cs" Link="Application/DeviceIdentity.cs" />
+    <Compile Include="..\..\PanoramaControl\Application\UiText.cs" Link="Application/UiText.cs" />
+    <Compile Include="..\..\PanoramaControl\Application\UiText.Windows.cs" Link="Application/UiText.Windows.cs" />
+    <Compile Include="..\..\PanoramaControl\Application\UiText.Catalogue.cs" Link="Application/UiText.Catalogue.cs" />
   </ItemGroup>
 </Project>

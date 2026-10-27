@@ -13,7 +13,7 @@ using ProtocolTests;
 
 namespace WindowsSmoke
 {
-    internal static class Program
+    internal static partial class Program
     {
         private static int checks;
         private static object Field(object instance, string name) { return instance.GetType().GetField(name, BindingFlags.NonPublic | BindingFlags.Instance).GetValue(instance); }
@@ -143,12 +143,16 @@ namespace WindowsSmoke
         [STAThread]
         private static int Main(string[] args)
         {
+            if (args.Length > 0 && args[0] == "--read-motion-config") return MotionConfigSnapshot.Run(args);
+            if (args.Length > 0 && args[0] == "--pan-measure") return PanMeasurement.Run(args);
             if (args.Length > 0 && args[0].StartsWith("--")) return HardwareChecks.Run(args);
             Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
             // This off-screen harness pumps messages without Application.Run.
             // Install the same continuation context as the real WinForms app.
             SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
             if (args.Length > 0 && args[0] == "preview-repro") return PreviewRepro(Path.GetFullPath(args[1]));
+            if (args.Length > 0 && args[0] == "navigation-repro") return NavigationRegression(Path.GetFullPath(args[1]));
+            if (args.Length > 0 && args[0] == "touch-repro") return TouchRegression(Path.GetFullPath(args[1]));
             string directory = Path.GetFullPath(args.Length > 0 ? args[0] : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "artifacts")); Directory.CreateDirectory(directory);
             string stateDirectory = Path.Combine(directory, "state-" + Guid.NewGuid().ToString("N"));
             try
@@ -341,6 +345,7 @@ namespace WindowsSmoke
                     Check(Params.ValidStartPosSet && Params.ValidEndPosSet && Params.PanoModus == 2, "Gespeicherter Bildanzahlentwurf nach Neustart nutzbar");
                     restored.Close();
                 }
+                ParityUi(directory);
                 Console.WriteLine("OK: " + checks + " Windows-UI-Prüfungen; Renderings: " + directory); return 0;
             }
             catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }

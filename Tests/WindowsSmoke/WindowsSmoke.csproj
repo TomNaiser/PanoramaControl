@@ -17,6 +17,10 @@
     <Reference Include="System.Drawing" />
     <Reference Include="PanoramaControl"><HintPath>..\..\PanoramaControl\bin\Release\PanoramaControl.exe</HintPath></Reference>
     <Compile Include="Program.cs" />
+    <Compile Include="ParityUi.cs" />
+    <Compile Include="NavigationRegression.cs" />
+    <Compile Include="MotionConfigSnapshot.cs" />
+    <Compile Include="PanMeasurement.cs" />
     <Compile Include="HardwareChecks.cs" />
     <Compile Include="..\ProtocolTests\CurrentFeaturesTests.cs" Link="DeviceSimulator.cs" />
   </ItemGroup>

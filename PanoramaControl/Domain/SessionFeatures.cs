@@ -13,12 +13,20 @@ namespace PanoramaControlApp.Domain
         public int WarningPan, WarningTilt;
         public uint ConfigRevision, MoveMaximumMs, TimingRunId, TimingImageIndex;
         public bool WarningSettings;
+        public bool CaptureRecovery;
+        public PanoramaControlApp.AppServices.CaptureStabilitySettings Stability;
+        public long StabilityVersion;
 
         public void Accept(string type, IReadOnlyList<string> fields)
         {
             int value;
             switch (type)
             {
+                case "CAPTURE_RECOVERY_CAPABILITIES": CaptureRecovery = Flag(fields); break;
+                case "CAPTURE_STABILITY_SETTINGS":
+                    Count(fields, 5);
+                    var stability = new PanoramaControlApp.AppServices.CaptureStabilitySettings(Int(fields[0]), Int(fields[1]), Int(fields[2]), Int(fields[3]), UInt(fields[4]));
+                    Stability = stability; ConfigRevision = stability.Revision; StabilityVersion++; break;
                 case "NAVIGATION_CAPABILITIES": InactiveNavigation = Flag(fields); break;
                 case "MOTION_CAPABILITIES": ProfiledMotion = Flag(fields); break;
                 case "MANUAL_STATUS_CAPABILITIES": ManualStatus = Flag(fields); break;
@@ -130,6 +138,15 @@ namespace PanoramaControlApp.Domain
 
     public static class CaptureWarnings
     {
+        public static string DescribeInvariant(int flags)
+        {
+            var reasons = new List<string>();
+            if ((flags & 1) != 0) reasons.Add("PAN_TOLERANCE");
+            if ((flags & 2) != 0) reasons.Add("TILT_TOLERANCE");
+            if ((flags & 4) != 0) reasons.Add("MOVEMENT_TIMEOUT");
+            if ((flags & 8) != 0) reasons.Add("TARGET_MISSED");
+            return string.Join("|", reasons);
+        }
         public static string Describe(int flags)
         {
             var reasons = new List<string>();

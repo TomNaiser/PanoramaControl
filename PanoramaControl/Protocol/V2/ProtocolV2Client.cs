@@ -15,7 +15,8 @@ namespace PanoramaControlApp.Protocol.V2
         private readonly ISerialTransport _transport;
         private readonly SemaphoreSlim _sendLock = new SemaphoreSlim(1, 1);
         private readonly object _pendingSync = new object();
-        private readonly object _writeSync = new object();
+        private object _writeSync = new object();
+        private int _unconfirmedActive;
         private PendingCommand _pending;
         private ushort _nextSequence = 1;
         private bool _disposed;
@@ -34,12 +35,14 @@ namespace PanoramaControlApp.Protocol.V2
 
         public int ResponseTimeoutMs { get; set; } = 750;
         public int MaximumRetries { get; set; } = 3;
+        public int WriteTimeoutMs { get; set; } = 1000;
 
         public void CancelPending(string reason)
         {
             lock (_pendingSync)
             {
                 _actionEpoch++;
+                _writeSync = new object();
                 if (_pending != null) _pending.Completion.TrySetException(new OperationCanceledException(reason));
                 _pending = null;
                 _priorityActive = false;
@@ -118,24 +121,49 @@ namespace PanoramaControlApp.Protocol.V2
             }
         }
 
-        private Task SendFrameAsync(PendingCommand request, string encoded, string detail, CancellationToken cancellationToken)
+        private async Task SendFrameAsync(PendingCommand request, string encoded, string detail, CancellationToken cancellationToken)
         {
             // SerialPort.Write can wait for its platform timeout. Never run it on the UI
             // thread or under the lock needed by ACK delivery, cancellation and disposal.
-            return Task.Run(() =>
+            object writer; int epoch;
+            lock (_pendingSync) { writer = _writeSync; epoch = _actionEpoch; }
+            Task write = Task.Run(() =>
             {
-                lock (_writeSync)
+                lock (writer)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     lock (_pendingSync)
                     {
-                        if (_pending != request || _disposed)
+                        if ((request != null && _pending != request) || _disposed || epoch != _actionEpoch)
                             throw new OperationCanceledException("Alte Aktion verworfen; Befehl nicht wiederholen.");
                     }
                     RaiseTrace("TX", encoded, detail);
                     _transport.Send(encoded);
                 }
             }, cancellationToken);
+            // Observe a late exception even after timeout/cancellation has returned.
+            _ = write.ContinueWith(t => { var ignored = t.Exception; }, TaskContinuationOptions.OnlyOnFaulted);
+            Task deadline = Task.Delay(WriteTimeoutMs, cancellationToken);
+            Task finished = request == null
+                ? await Task.WhenAny(write, deadline).ConfigureAwait(false)
+                : await Task.WhenAny(write, request.Completion.Task, deadline).ConfigureAwait(false);
+            if (request != null && finished == request.Completion.Task)
+            {
+                // A successful ACK may arrive before the same transport callback has
+                // delivered its accompanying status. Preserve that delivery ordering.
+                await request.Completion.Task.ConfigureAwait(false);
+                finished = await Task.WhenAny(write, deadline).ConfigureAwait(false);
+            }
+            if (finished == write) { await write.ConfigureAwait(false); return; }
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_pendingSync)
+            {
+                if (epoch != _actionEpoch) throw new OperationCanceledException("Alte Transportsitzung verworfen.");
+                CancelPending("Bluetooth-Schreibfrist überschritten; Wirkung unklar.");
+            }
+            RaiseProtocolError("Bluetooth-Schreibfrist überschritten; Verbindung wird getrennt.", "WRITE_TIMEOUT");
+            _transport.Disconnect();
+            throw new TimeoutException("Bluetooth-Schreibfrist überschritten; Wirkung unklar.");
         }
 
         public void SendUnconfirmed(string messageType, params string[] fields)
@@ -143,12 +171,13 @@ namespace PanoramaControlApp.Protocol.V2
             ThrowIfDisposed();
             ushort sequence = NextSequence();
             string encoded = ProtocolFrameCodec.Encode(new ProtocolFrame(sequence, messageType, fields));
-            lock (_writeSync)
+            if (Interlocked.Exchange(ref _unconfirmedActive, 1) != 0) return;
+            Task.Run(async () =>
             {
-                ThrowIfDisposed();
-                RaiseTrace("TX", encoded, "unconfirmed");
-                _transport.Send(encoded);
-            }
+                try { await SendFrameAsync(null, encoded, "unconfirmed", CancellationToken.None).ConfigureAwait(false); }
+                catch (Exception ex) { RaiseProtocolError(ex.Message, ""); }
+                finally { Interlocked.Exchange(ref _unconfirmedActive, 0); }
+            });
         }
 
         private void TransportLineReceived(object sender, SerialLineReceivedEventArgs eventArgs)

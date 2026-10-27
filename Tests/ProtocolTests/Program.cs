@@ -17,6 +17,11 @@ namespace ProtocolTests
         {
             try
             {
+                if (args.Length > 0 && args[0] == "--parity")
+                {
+                    Console.WriteLine("OK: " + AndroidParityTests.Run() + " Android-Paritaetspruefungen erfolgreich.");
+                    return 0;
+                }
                 if (args.Length > 0 && args[0] == "--blocked-transport")
                 {
                     Console.WriteLine("OK: " + TransportRobustnessTests.Run() + " Transport-Pruefungen erfolgreich.");
@@ -43,6 +48,7 @@ namespace ProtocolTests
                 TestEmergencyStopPreemptsPendingCommand();
                 _tests += TransportRobustnessTests.Run();
                 _tests += CurrentFeaturesTests.Run();
+                _tests += AndroidParityTests.Run();
                 Console.WriteLine("OK: " + _tests + " Tests erfolgreich.");
                 return 0;
             }

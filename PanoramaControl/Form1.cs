@@ -28,7 +28,7 @@ namespace PanoramaControlApp
         private readonly ManualMoveTargets manualMoveTargets = new ManualMoveTargets();
         private readonly SemaphoreSlim manualMoveGate = new SemaphoreSlim(1, 1);
         private readonly SemaphoreSlim timingUpdateGate = new SemaphoreSlim(1, 1);
-        private readonly PapyWizardRunExporter runExporter = new PapyWizardRunExporter();
+        private readonly PapyWizardRunExporter runExporter = new PapyWizardRunExporter(new ViewOnlyWriter());
         private uint activeRunId;
         private RunState lastReportedRunState = RunState.Unknown;
         private bool runStatusReady;
@@ -48,7 +48,7 @@ namespace PanoramaControlApp
         // Gemeinsame Ausgabe fuer Bedienhinweise sowie Verbindungs- und Diagnosereignisse.
         public void ShowCommentOutput(String CommentText)
         {
-            CommentRTB.AppendText(CommentText);
+            CommentRTB.AppendText(UiText.T(CommentText));
             // Keep keyboard/mouse focus on the active control.
             CommentRTB.ScrollToCaret();
         }
@@ -70,7 +70,7 @@ namespace PanoramaControlApp
             VibDelayTextBox.KeyDown += TimingTextBox_KeyDown;
             ExpDelayTextBox.KeyDown += TimingTextBox_KeyDown;
             CamTriggerDurationTextBox.KeyDown += TimingTextBox_KeyDown;
-            baseWindowTitle = "PanoramaControl 27.4.4 · Android-Funktionsabgleich";
+            baseWindowTitle = "PanoramaControl 27.5.4";
             sessionController = new PanoramaSessionController(transport, stateDirectory == null ? null : System.IO.Path.Combine(stateDirectory, "SupportLogs"));
             sessionController.Message += SessionController_Message;
             sessionController.ConnectionStateChanged += SessionController_ConnectionStateChanged;
@@ -110,11 +110,11 @@ namespace PanoramaControlApp
             catch (Exception exception)
             {
                 Params.SetDefaultValues();
-                CommentRTB.AppendText("Konfigurationsdatei ungültig; sichere Standardwerte werden verwendet: " + exception.Message + "\n");
+                CommentRTB.AppendText(UiText.T("Konfigurationsdatei ungültig; sichere Standardwerte werden verwendet: ") + exception.Message + "\n");
             }
             if (!Params.ConfigurationFileLoaded)
             {
-                CommentRTB.AppendText("Keine Konfigurationsdatei gefunden; sichere Standardwerte werden verwendet.\n");
+                CommentRTB.AppendText(UiText.T("Keine Konfigurationsdatei gefunden; sichere Standardwerte werden verwendet.\n"));
             }
             if (!string.IsNullOrEmpty(Params.ConfigurationWarning))
             {
@@ -169,7 +169,7 @@ namespace PanoramaControlApp
 
             if (result[0] == "No Port Available")
             {
-                MessageBox.Show("Es wurden keine COM-Ports gefunden.", "Fehler", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(UiText.T("Es wurden keine COM-Ports gefunden."), "Fehler", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -384,7 +384,7 @@ namespace PanoramaControlApp
                     NumYTextBox.Text = Params.numY.ToString(CultureInfo.InvariantCulture);
                     Params.validModel = true;
                     DrawSphericalPreview(preview);
-                    ShowCommentOutput("Spherical: " + preview.Rows + " Tilt-Bänder, " + preview.TotalImages + " Aufnahmen.\n");
+                    ShowCommentOutput("Spherical: " + preview.Rows + UiText.T(" Tilt-Bänder, ") + preview.TotalImages + " Aufnahmen.\n");
                 }
                 catch { ClearSphericalPreview(); throw; }
                 return;
@@ -438,10 +438,10 @@ namespace PanoramaControlApp
             await UiActionAsync(async () =>
             {
                 var plan = sessionController.ActivePlan;
-                if (plan == null) throw new InvalidOperationException("Zuerst einen Plan übertragen.");
-                if (MessageBox.Show(this, "Geladenen Geräteauftrag " + plan.RunId + " mit " + plan.TotalImages +
-                    " Aufnahmen starten? Das Gerät fährt und löst die Kamera aus. Spätere lokale Änderungen müssen zuvor erneut übertragen werden.",
-                    "Aufnahme starten", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
+                if (plan == null) throw new InvalidOperationException(UiText.T("Zuerst einen Plan übertragen."));
+                if (MessageBox.Show(this, UiText.T("Geladenen Geräteauftrag ") + plan.RunId + UiText.T(" mit ") + plan.TotalImages +
+                    UiText.T(" Aufnahmen starten? Das Gerät fährt und löst die Kamera aus. Spätere lokale Änderungen müssen zuvor erneut übertragen werden."),
+                    UiText.T("Aufnahme starten"), MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
                 var result = await sessionController.StartAsync(plan.RunId, CancellationToken.None);
                 if (!result.Accepted) throw new InvalidOperationException(result.Code);
             });
@@ -450,8 +450,8 @@ namespace PanoramaControlApp
         private async void StopButton_Click(object sender, EventArgs e)
         {
             DialogResult confirmation = MessageBox.Show(
-                "Panorama wirklich stoppen? Die Motoren werden sofort abgeschaltet und es erfolgt keine weitere Fahrt.",
-                "Panorama stoppen",
+                UiText.T("Panorama wirklich stoppen? Die Motoren werden sofort abgeschaltet und es erfolgt keine weitere Fahrt."),
+                UiText.T("Panorama stoppen"),
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning,
                 MessageBoxDefaultButton.Button2);
@@ -463,7 +463,7 @@ namespace PanoramaControlApp
                 if (!result.Accepted) throw new InvalidOperationException("STOP abgelehnt: " + result.Code);
                 Params.StopAcquisition = true;
                 SystemSounds.Beep.Play();
-                ShowCommentOutput("Pano acquisition stopped; Motoren abgeschaltet.\n");
+                ShowCommentOutput(UiText.T("Pano acquisition stopped; Motoren abgeschaltet.\n"));
             }
             catch (Exception exception)
             {
@@ -516,7 +516,7 @@ namespace PanoramaControlApp
             if (!FinishClosing(e)) return;
             shutterPulseFlashTimer.Dispose();
             ClosePositionLog();
-            sessionController.Dispose();
+            ReleaseSessionResources();
             drawingBitMap.Dispose();
             captureBitMap.Dispose();
             if (sphericalPreviewBitMap != null) sphericalPreviewBitMap.Dispose();
@@ -533,7 +533,7 @@ namespace PanoramaControlApp
                     : 30U;
                 var result = await sessionController.TriggerOnceAsync(pulseTime, CancellationToken.None);
                 if (!result.Accepted) throw new InvalidOperationException("TRIGGER_ONCE abgelehnt: " + result.Code);
-                ShowCommentOutput("Camera trigger sent (keine Kamerabestätigung konfiguriert).\n");
+                ShowCommentOutput(UiText.T("Camera trigger sent (keine Kamerabestätigung konfiguriert).\n"));
             }
             catch (Exception exception)
             {
@@ -661,7 +661,7 @@ namespace PanoramaControlApp
                     Params.ControlledDurationTrigger);
                 var result = await sessionController.UpdateTimingAsync(activeRunId, timing, CancellationToken.None);
                 if (!result.Accepted) throw new InvalidOperationException("UPDATE_TIMING abgelehnt: " + result.Code);
-                ShowCommentOutput("Zeiten an Arduino übertragen: Move Delay " +
+                ShowCommentOutput(UiText.T("Zeiten an Arduino übertragen: Move Delay ") +
                     (timing.SettleTimeMs / 1000.0).ToString("0.###", CultureInfo.InvariantCulture) + " s, Trigger " +
                     (timing.TriggerPulseMs / 1000.0).ToString("0.###", CultureInfo.InvariantCulture) + " s, Exposure Delay " +
                     (timing.ExposureWaitMs / 1000.0).ToString("0.###", CultureInfo.InvariantCulture) +
@@ -669,7 +669,7 @@ namespace PanoramaControlApp
             }
             catch (Exception exception)
             {
-                ShowOperationError("Laufzeit-Zeiten konnten nicht aktualisiert werden", exception);
+                ShowOperationError(UiText.T("Laufzeit-Zeiten konnten nicht aktualisiert werden"), exception);
             }
             finally { timingUpdateGate.Release(); }
         }
@@ -807,7 +807,7 @@ namespace PanoramaControlApp
                     DrawEndpoint(e.Graphics, startPen, Params.StartPosX, Params.StartPosY, "Start");
             if (viewedArchive == null && Params.ValidEndPosSet)
                 using (Pen endPen = new Pen(Color.Red, 2))
-                    DrawEndpoint(e.Graphics, endPen, Params.EndPosX, Params.EndPosY, "Ende");
+                    DrawEndpoint(e.Graphics, endPen, Params.EndPosX, Params.EndPosY, UiText.T("Ende"));
         }
 
         private void ClearPanelButton_Click(object sender, EventArgs e)
@@ -854,7 +854,7 @@ namespace PanoramaControlApp
                 ContinueButton.Enabled = false;
                 PauseButton.Enabled = false;
                 ShowCommentOutput(result.Code == "PAUSE_PENDING"
-                    ? "Pause angefordert; das aktuelle Bild wird noch vollständig aufgenommen.\n"
+                    ? UiText.T("Pause angefordert; das aktuelle Bild wird noch vollständig aufgenommen.\n")
                     : "Panorama pausiert.\n");
             }
             catch (Exception exception)
@@ -884,7 +884,7 @@ namespace PanoramaControlApp
             RunState state = sessionController.CurrentStatus.State;
             if (state != RunState.Running && state != RunState.PausePending && state != RunState.Paused)
             {
-                ShowCommentOutput("Spalten können nur während eines laufenden oder pausierten Panoramas zurückgesetzt werden.\n");
+                ShowCommentOutput(UiText.T("Spalten können nur während eines laufenden oder pausierten Panoramas zurückgesetzt werden.\n"));
                 return;
             }
             try
@@ -892,12 +892,12 @@ namespace PanoramaControlApp
                 var result = await sessionController.RewindColumnsAsync(activeRunId, 1, CancellationToken.None);
                 if (!result.Accepted) throw new InvalidOperationException("REWIND_COLUMNS abgelehnt: " + result.Code);
                 ShowCommentOutput(result.Code == "REWIND_PENDING"
-                    ? "Eine Spalte zurück vorgemerkt. Das aktuelle Bild wird beendet; dann beginnt die Wiederholung automatisch. Weitere Klicks zählen zusätzliche Spalten.\n"
-                    : "Fortsetzungspunkt um eine Spalte zurückgesetzt. Nach Continue beginnt die Wiederholung.\n");
+                    ? UiText.T("Eine Spalte zurück vorgemerkt. Das aktuelle Bild wird beendet; dann beginnt die Wiederholung automatisch. Weitere Klicks zählen zusätzliche Spalten.\n")
+                    : UiText.T("Fortsetzungspunkt um eine Spalte zurückgesetzt. Nach Continue beginnt die Wiederholung.\n"));
             }
             catch (Exception exception)
             {
-                ShowOperationError("Spalte zurücksetzen fehlgeschlagen", exception);
+                ShowOperationError(UiText.T("Spalte zurücksetzen fehlgeschlagen"), exception);
             }
         }
 
@@ -949,7 +949,7 @@ namespace PanoramaControlApp
         //Testing Routine for setting the servo speeds of pan and tilt axis
         private void ApplySpeedTestButton_Click(object sender, EventArgs e)
         {
-            ShowCommentOutput("Die eingestellten Geschwindigkeiten werden mit dem nächsten Panoramaauftrag übertragen.\n");
+            ShowCommentOutput(UiText.T("Die eingestellten Geschwindigkeiten werden mit dem nächsten Panoramaauftrag übertragen.\n"));
         }
 
         private void VibrationCheckBox_CheckedChanged(object sender, EventArgs e)
@@ -971,14 +971,14 @@ namespace PanoramaControlApp
             if (!double.TryParse(textBoxTimeLapsePeriod.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out seconds) ||
                 double.IsNaN(seconds) || double.IsInfinity(seconds) || seconds < 0.1 || seconds > 3600)
             {
-                ShowCommentOutput("Timelapse-Intervall muss zwischen 0,1 und 3600 Sekunden liegen.\n");
+                ShowCommentOutput(UiText.T("Timelapse-Intervall muss zwischen 0,1 und 3600 Sekunden liegen.\n"));
                 return;
             }
             uint intervalMs = checked((uint)Math.Round(seconds * 1000.0, MidpointRounding.AwayFromZero));
             uint pulseMs = timelapsePulseInput == null ? 30U : (uint)timelapsePulseInput.Value;
             if (intervalMs <= pulseMs)
             {
-                ShowCommentOutput("Timelapse-Intervall muss länger als der eingestellte Triggerpuls sein.\n");
+                ShowCommentOutput(UiText.T("Timelapse-Intervall muss länger als der eingestellte Triggerpuls sein.\n"));
                 return;
             }
             try
@@ -988,7 +988,7 @@ namespace PanoramaControlApp
                 if (!result.Accepted) throw new InvalidOperationException("START_TIMELAPSE abgelehnt: " + result.Code);
                 activeRunId = runId;
                 Params.TimeLapsePeriod = seconds;
-                ShowCommentOutput("Timelapse läuft autonom auf PanoDuinoControl.\n");
+                ShowCommentOutput(UiText.T("Timelapse läuft autonom auf PanoDuinoControl.\n"));
             }
             catch (Exception exception)
             {
@@ -1001,7 +1001,7 @@ namespace PanoramaControlApp
             RunState state = sessionController.CurrentStatus.State;
             if (state != RunState.Running && state != RunState.PausePending && state != RunState.Paused)
             {
-                ShowCommentOutput("Spalten können nur während eines laufenden oder pausierten Panoramas vorwärtsgesetzt werden.\n");
+                ShowCommentOutput(UiText.T("Spalten können nur während eines laufenden oder pausierten Panoramas vorwärtsgesetzt werden.\n"));
                 return;
             }
             try
@@ -1011,18 +1011,18 @@ namespace PanoramaControlApp
                 {
                     if (result.Code == "LAST_COLUMN")
                     {
-                        ShowCommentOutput("Die letzte Rasterspalte ist bereits erreicht.\n");
+                        ShowCommentOutput(UiText.T("Die letzte Rasterspalte ist bereits erreicht.\n"));
                         return;
                     }
                     throw new InvalidOperationException("FORWARD_COLUMNS abgelehnt: " + result.Code);
                 }
                 ShowCommentOutput(result.Code == "FORWARD_PENDING"
-                    ? "Eine Spalte vorwärts vorgemerkt. Das aktuelle Bild wird beendet; dann beginnt die nächste Spalte automatisch. Weitere Klicks zählen zusätzliche Spalten.\n"
-                    : "Fortsetzungspunkt um eine Spalte vorwärtsgesetzt. Nach Continue beginnt die nächste Spalte.\n");
+                    ? UiText.T("Eine Spalte vorwärts vorgemerkt. Das aktuelle Bild wird beendet; dann beginnt die nächste Spalte automatisch. Weitere Klicks zählen zusätzliche Spalten.\n")
+                    : UiText.T("Fortsetzungspunkt um eine Spalte vorwärtsgesetzt. Nach Continue beginnt die nächste Spalte.\n"));
             }
             catch (Exception exception)
             {
-                ShowOperationError("Spalte vorwärtssetzen fehlgeschlagen", exception);
+                ShowOperationError(UiText.T("Spalte vorwärtssetzen fehlgeschlagen"), exception);
             }
         }
 
@@ -1032,7 +1032,7 @@ namespace PanoramaControlApp
             {
                 var result = await sessionController.StopTimelapseAsync(activeRunId, CancellationToken.None);
                 if (!result.Accepted) throw new InvalidOperationException("STOP_TIMELAPSE abgelehnt: " + result.Code);
-                ShowCommentOutput("Timelapse gestoppt.\n");
+                ShowCommentOutput(UiText.T("Timelapse gestoppt.\n"));
             }
             catch (Exception exception)
             {
@@ -1047,12 +1047,12 @@ namespace PanoramaControlApp
                 if (useSelectedPort && COMcomboBox.Text.Contains("COM")) Params.COMPortName = COMcomboBox.Text;
                 await sessionController.ConnectAsync(Params.COMPortName, Params.BTbaudrate, CancellationToken.None);
                 UpdateConnectionUi(sessionController.State);
-                ShowCommentOutput("Bluetooth-COM verbunden; Protokoll V2 und Sicherheitsgrenzen empfangen.\n");
+                ShowCommentOutput(UiText.T("Bluetooth-COM verbunden; Protokoll V2 und Sicherheitsgrenzen empfangen.\n"));
             }
             catch (Exception exception)
             {
                 UpdateConnectionUi(sessionController.State);
-                ShowOperationError("Bluetooth-COM-Verbindung nicht bereit", exception);
+                ShowOperationError(UiText.T("Bluetooth-COM-Verbindung nicht bereit"), exception);
             }
         }
 
@@ -1074,7 +1074,7 @@ namespace PanoramaControlApp
                     tilt = Math.Max(c.TiltMinimum.ToDegrees(), Math.Min(c.TiltMaximum.ToDegrees(), tilt));
                 }
                 if (Math.Abs(pan - actualPan) < .0005 && Math.Abs(tilt - actualTilt) < .0005)
-                    throw new InvalidOperationException("Grenze erreicht · in Gegenrichtung zurückfahren.");
+                    throw new InvalidOperationException(UiText.T("Grenze erreicht · in Gegenrichtung zurückfahren."));
                 if (!await SendManualMoveAsync(pan, tilt)) return;
                 manualMoveTargets.Accept(pan, tilt);
                 panel1.Invalidate();
@@ -1121,7 +1121,7 @@ namespace PanoramaControlApp
             readTiltLimitsButton = new Button { Text = "Vom Nano lesen", Location = new Point(350, 52), Size = new Size(130, 28), Enabled = false };
             saveTiltLimitsButton = new Button { Text = "Im Nano speichern", Location = new Point(490, 52), Size = new Size(150, 28), Enabled = false };
             tiltLimitsStatusLabel = new Label { Text = "Keine Verbindung", Location = new Point(15, 95), AutoSize = true };
-            var boundsLabel = new Label { Text = "Verbindlich sind die bestätigten Gerätegrenzen. Tilt-Nullpunkt unter Fahrt / Referenz.",
+            var boundsLabel = new Label { Text = UiText.T("Verbindlich sind die bestätigten Gerätegrenzen. Tilt-Nullpunkt unter Fahrt / Referenz."),
                 Location = new Point(15, 125), AutoSize = true, ForeColor = Color.DarkOrange };
             readTiltLimitsButton.Click += ReadTiltLimitsButton_Click;
             saveTiltLimitsButton.Click += SaveTiltLimitsButton_Click;
@@ -1141,7 +1141,7 @@ namespace PanoramaControlApp
                 tiltMinimumInput.Value = Math.Max(tiltMinimumInput.Minimum, Math.Min(tiltMinimumInput.Maximum, lower));
                 tiltMaximumInput.Value = Math.Max(tiltMaximumInput.Minimum, Math.Min(tiltMaximumInput.Maximum, upper));
                 tiltLimitsStatusLabel.Text = "Nano meldet: " + lower.ToString("0.###", CultureInfo.CurrentCulture) +
-                    "° bis " + upper.ToString("0.###", CultureInfo.CurrentCulture) + "°";
+                    UiText.T("° bis ") + upper.ToString("0.###", CultureInfo.CurrentCulture) + "°";
                 UpdateTiltLimitsButtons();
             });
         }
@@ -1157,7 +1157,7 @@ namespace PanoramaControlApp
             tiltMinimumInput.Enabled = saveTiltLimitsButton.Enabled;
             tiltMaximumInput.Enabled = saveTiltLimitsButton.Enabled;
             if (!connected) tiltLimitsStatusLabel.Text = "Keine Verbindung";
-            else if (sessionController.Capabilities != null) tiltLimitsStatusLabel.Text = "Gerät meldet: " + sessionController.Capabilities.TiltMinimum + " bis " + sessionController.Capabilities.TiltMaximum;
+            else if (sessionController.Capabilities != null) tiltLimitsStatusLabel.Text = UiText.T("Gerät meldet: ") + sessionController.Capabilities.TiltMinimum + UiText.T(" bis ") + sessionController.Capabilities.TiltMaximum;
         }
 
         private async void ReadTiltLimitsButton_Click(object sender, EventArgs e)
@@ -1174,7 +1174,7 @@ namespace PanoramaControlApp
         {
             if (tiltMinimumInput.Value >= tiltMaximumInput.Value)
             {
-                MessageBox.Show("Die untere Tilt-Grenze muss kleiner als die obere sein.", "Tilt-Grenzen", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(UiText.T("Die untere Tilt-Grenze muss kleiner als die obere sein."), UiText.T("Tilt-Grenzen"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             saveTiltLimitsButton.Enabled = false;
@@ -1187,7 +1187,7 @@ namespace PanoramaControlApp
                 if (!result.Accepted) throw new InvalidOperationException(result.Code);
                 result = await sessionController.RefreshCapabilitiesAsync(CancellationToken.None);
                 if (!result.Accepted) throw new InvalidOperationException(result.Code);
-                ShowCommentOutput("Tilt-Sicherheitsgrenzen im Nano gespeichert.\n");
+                ShowCommentOutput(UiText.T("Tilt-Sicherheitsgrenzen im Nano gespeichert.\n"));
             }
             catch (Exception exception) { ShowOperationError("Tilt-Grenzen speichern", exception); }
             finally { UpdateTiltLimitsButtons(); }
@@ -1225,7 +1225,7 @@ namespace PanoramaControlApp
             ConnectionStatusLabel.Text = "Status: " + state;
             if (state != ConnectionState.Connected)
                 TimelapseStateLabel.Text = state == ConnectionState.Reconnecting
-                    ? "Status: Verbindung wird wiederhergestellt" : "Status: Keine Verbindung";
+                    ? UiText.T("Status: Verbindung wird wiederhergestellt") : "Status: Keine Verbindung";
             ConnectionStatusLabel.ForeColor = state == ConnectionState.Connected ? Color.DarkGreen :
                 state == ConnectionState.Reconnecting || state == ConnectionState.Connecting || state == ConnectionState.Handshaking
                     ? Color.DarkOrange : Color.DarkRed;
@@ -1258,7 +1258,7 @@ namespace PanoramaControlApp
                 SetRunButtons(status.State);
                 UpdateTiltLimitsButtons();
                 Text = status.State == RunState.Timelapse || status.State == RunState.TimelapseStopped
-                    ? baseWindowTitle + " - Timelapse: " + status.CompletedImages + " Aufnahmen"
+                    ? baseWindowTitle + " - Timelapse: " + status.CompletedImages + UiText.T(" Aufnahmen")
                     : baseWindowTitle;
 
                 if (status.State != lastReportedRunState)
@@ -1304,12 +1304,12 @@ namespace PanoramaControlApp
             if (status.State != RunState.Timelapse && status.State != RunState.TimelapseStopped)
             {
                 TimelapseStateLabel.Text = sessionController.State == ConnectionState.Connected
-                    ? "Status: Bereit" : "Status: Keine Verbindung";
+                    ? UiText.T("Status: Bereit") : "Status: Keine Verbindung";
                 return;
             }
 
             TimelapseStateLabel.Text = status.State == RunState.Timelapse
-                ? "Status: Timelapse läuft" : "Status: Timelapse gestoppt";
+                ? UiText.T("Status: Timelapse läuft") : "Status: Timelapse gestoppt";
             if (!timelapseCountKnown || shownTimelapseRunId != status.RunId)
             {
                 shownTimelapseRunId = status.RunId;
@@ -1317,12 +1317,12 @@ namespace PanoramaControlApp
                 timelapseCountKnown = true;
                 shutterPulseFlashTimer.Stop();
                 ShutterPulseCountLabel.ForeColor = SystemColors.ControlText;
-                LastShutterPulseLabel.Text = "Letzter Puls: --";
+                LastShutterPulseLabel.Text = UiText.T("Letzter Puls: --");
             }
             else if (status.CompletedImages > shownTimelapsePulses)
             {
                 shownTimelapsePulses = status.CompletedImages;
-                LastShutterPulseLabel.Text = "Letzter Puls: " + DateTime.Now.ToString("HH:mm:ss");
+                LastShutterPulseLabel.Text = UiText.T("Letzter Puls: ") + DateTime.Now.ToString("HH:mm:ss");
                 ShutterPulseCountLabel.ForeColor = Color.DarkGreen;
                 shutterPulseFlashTimer.Stop();
                 shutterPulseFlashTimer.Start();
@@ -1403,11 +1403,11 @@ namespace PanoramaControlApp
                 panel1.Invalidate();
                 if (imageEvent.Reconstructed)
                 {
-                    ShowCommentOutput("Rasteraufnahme " + imageEvent.CaptureSequence + " nach Verbindungsunterbrechung rekonstruiert.\n");
+                    ShowCommentOutput(UiText.T("Rasteraufnahme ") + imageEvent.CaptureSequence + UiText.T(" nach Verbindungsunterbrechung rekonstruiert.\n"));
                 }
                 if (imageEvent.Manual)
                 {
-                    ShowCommentOutput("Manuelle Aufnahme während der Pause protokolliert.\n");
+                    ShowCommentOutput(UiText.T("Manuelle Aufnahme während der Pause protokolliert.\n"));
                 }
             });
         }
@@ -1432,7 +1432,7 @@ namespace PanoramaControlApp
                 return;
             }
             bool active = state == RunState.Running || state == RunState.PausePending || state == RunState.Paused;
-            StartButton.Enabled = state == RunState.PlanReady && !DraftDiffersFromLoaded;
+            StartButton.Enabled = state == RunState.PlanReady && !DraftDiffersFromLoaded && sessionController.StartAllowed;
             StopButton.Enabled = active;
             PauseButton.Enabled = state == RunState.Running;
             ContinueButton.Enabled = state == RunState.Paused;
@@ -1513,7 +1513,7 @@ namespace PanoramaControlApp
                 {
                     StringValue = _Data.ToString().Replace(',', '.');
                     _val = double.Parse(StringValue, System.Globalization.NumberStyles.Float, System.Globalization.NumberFormatInfo.InvariantInfo);
-                    if (double.IsNaN(_val) || double.IsInfinity(_val)) throw new FormatException("Bitte eine endliche Zahl eingeben.");
+                    if (double.IsNaN(_val) || double.IsInfinity(_val)) throw new FormatException(UiText.T("Bitte eine endliche Zahl eingeben."));
 
                     if (_val < _MinVal)
                         _val = _MinVal;

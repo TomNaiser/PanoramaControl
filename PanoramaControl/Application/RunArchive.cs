@@ -18,6 +18,7 @@ namespace PanoramaControlApp.AppServices
         private readonly object _sync = new object();
         private readonly Dictionary<string, Dictionary<string, RunEvent>> stored = new Dictionary<string, Dictionary<string, RunEvent>>();
         private readonly Dictionary<string, string> plans = new Dictionary<string, string>();
+        public string ReadWarning { get; private set; } = "";
         public RunArchive(string directory) { _directory = directory; Directory.CreateDirectory(directory); }
         public string SelectRun(string device, uint boot, uint run)
         {
@@ -89,7 +90,7 @@ namespace PanoramaControlApp.AppServices
                         { e.WarningFlags |= old.WarningFlags; if (old.HasMeasuredPosition && !e.HasMeasuredPosition) { old.WarningFlags |= e.WarningFlags; continue; } }
                         entries[identity] = e;
                     }
-                    catch (Exception ex) when (ex is FormatException || ex is OverflowException || ex is ArgumentOutOfRangeException) { }
+                    catch (Exception ex) when (ex is FormatException || ex is OverflowException || ex is ArgumentOutOfRangeException) { ReadWarning = "Ungültige Journalrecords wurden ausgelassen."; }
                 }
                 foreach (RunEvent e in entries.Values) { int flags; if (!e.Manual && warnings.TryGetValue(e.CaptureSequence, out flags)) e.WarningFlags |= flags; }
                 return entries.Values.OrderBy(e => e.RasterCaptureCount).ThenBy(e => e.Manual ? 1 : 0).ThenBy(e => e.EventSequence).ToArray();
@@ -100,9 +101,11 @@ namespace PanoramaControlApp.AppServices
             string path = PathFor(key); if (!File.Exists(path)) yield break;
             foreach (string line in File.ReadLines(path))
             {
-                int separator = line.LastIndexOf('\t'); if (separator < 0) continue;
+                if (line.Length == 0) continue;
+                int separator = line.LastIndexOf('\t'); if (separator < 0) { ReadWarning = "Unvollständige Journalrecords wurden ausgelassen."; continue; }
                 string data = line.Substring(0, separator);
                 if (Checksum(data) == line.Substring(separator + 1)) yield return data.Split('\t');
+                else ReadWarning = "Journalrecords mit ungültiger Prüfsumme wurden ausgelassen.";
             }
         }
         public string[] PlanFields(string key) { lock (_sync) { var p = Records(key).LastOrDefault(f => f[0] == "P" && f.Length == 2); return p == null ? null : p[1].Split('|'); } }

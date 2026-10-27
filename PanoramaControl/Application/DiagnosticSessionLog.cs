@@ -1,73 +1,82 @@
 using System;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace PanoramaControlApp.AppServices
 {
-    /// <summary>
-    /// Dauerhaftes, zeilenorientiertes Supportprotokoll. Es enthaelt den
-    /// vollstaendigen V2-TX/RX-Verkehr und wichtige Clientmeldungen, aber keine
-    /// Zugangsdaten. AutoFlush bewahrt die letzten Zeilen auch bei einem Absturz.
-    /// </summary>
     public sealed class DiagnosticSessionLog : IDisposable
     {
-        private const long MaximumBytes = 5L * 1024L * 1024L;
-        private readonly object _sync = new object();
-        private StreamWriter _writer;
-        private bool _limitReported;
-
+        private const long MaximumBytes = 5L * 1024 * 1024;
+        private sealed class Entry { internal string Line; internal TaskCompletionSource<bool> Flush; }
+        private readonly BlockingCollection<Entry> queue = new BlockingCollection<Entry>(4096);
+        private readonly Task worker;
+        private volatile bool closed;
+        private volatile string error = "";
+        private long omitted;
+        public string FilePath { get; private set; }
+        public string Error { get { return error; } }
         public DiagnosticSessionLog(string directory = null)
         {
-            directory = directory ?? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "PanoramaControl", "SupportLogs");
+            directory = directory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PanoramaControl", "SupportLogs");
             Directory.CreateDirectory(directory);
-            string stamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss_fff", CultureInfo.InvariantCulture);
-            FilePath = Path.Combine(directory, "PanoramaSupport_" + stamp + ".log");
-            _writer = new StreamWriter(FilePath, false, new UTF8Encoding(false)) { AutoFlush = true };
-            Write("INFO", "SESSION", "PanoramaControl 27.4 support log; UTC timestamps; protocol lines preserve CRC.");
+            FilePath = Path.Combine(directory, "PanoramaSupport_" + DateTime.UtcNow.ToString("yyyyMMdd_HHmmss_fff", CultureInfo.InvariantCulture) + "_" + Guid.NewGuid().ToString("N").Substring(0, 6) + ".log");
+            worker = Task.Run((Action)Drain);
+            Write("INFO", "SESSION", "PanoramaControl 27.5 support log; UTC timestamps; protocol lines preserve CRC.");
         }
-
-        public string FilePath { get; private set; }
-
         public void Write(string direction, string detail, string data)
         {
-            lock (_sync)
+            if (closed) return;
+            var entry = new Entry { Line = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture) + "\t" + direction + "\t" + detail + "\t" + (data ?? "").Replace("\r", "\\r").Replace("\n", "\\n") };
+            try { if (!queue.TryAdd(entry)) System.Threading.Interlocked.Increment(ref omitted); }
+            catch (InvalidOperationException) { }
+        }
+        private StreamWriter Open()
+        { return new StreamWriter(new FileStream(FilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite), new UTF8Encoding(false)) { AutoFlush = true }; }
+        private void Drain()
+        {
+            StreamWriter writer = null;
+            try
             {
-                if (_writer == null) return;
-                if (_writer.BaseStream.Length >= MaximumBytes)
+                foreach (Entry entry in queue.GetConsumingEnumerable())
                 {
-                    if (!_limitReported)
+                    try
                     {
-                        _writer.WriteLine(FormatLine("WARN", "LIMIT", "Maximum log size 5 MiB reached; further lines omitted."));
-                        _limitReported = true;
+                        if (writer == null) writer = Open();
+                        if (writer.BaseStream.Length >= MaximumBytes)
+                        {
+                            writer.Dispose(); writer = null;
+                            if (File.Exists(FilePath + ".3")) File.Delete(FilePath + ".3");
+                            for (int i = 2; i >= 1; i--) if (File.Exists(FilePath + "." + i)) File.Move(FilePath + "." + i, FilePath + "." + (i + 1));
+                            if (File.Exists(FilePath)) File.Move(FilePath, FilePath + ".1");
+                            writer = Open();
+                        }
+                        long dropped = System.Threading.Interlocked.Exchange(ref omitted, 0);
+                        if (dropped > 0) writer.WriteLine("LOG_QUEUE_OVERFLOW\t" + dropped);
+                        if (entry.Line != null) writer.WriteLine(entry.Line);
+                        if (entry.Flush != null) { writer.Flush(); entry.Flush.TrySetResult(true); }
+                        error = "";
                     }
-                    return;
+                    catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                    {
+                        error = ex.Message;
+                        if (entry.Flush != null) entry.Flush.TrySetException(ex);
+                        try { if (writer != null) writer.Dispose(); } catch { } writer = null;
+                    }
                 }
-                _writer.WriteLine(FormatLine(direction, detail, Normalize(data)));
             }
+            finally { if (writer != null) writer.Dispose(); }
         }
-
-        private static string FormatLine(string direction, string detail, string data)
+        public Task FlushAsync()
         {
-            return DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture) +
-                "\t" + direction + "\t" + detail + "\t" + data;
+            if (closed) return worker;
+            var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            try { if (!queue.TryAdd(new Entry { Flush = completion })) completion.TrySetException(new IOException("Diagnosewarteschlange voll.")); }
+            catch (InvalidOperationException) { return worker; }
+            return completion.Task;
         }
-
-        private static string Normalize(string value)
-        {
-            return (value ?? string.Empty).Replace("\r", "\\r").Replace("\n", "\\n");
-        }
-
-        public void Dispose()
-        {
-            lock (_sync)
-            {
-                if (_writer == null) return;
-                _writer.Dispose();
-                _writer = null;
-            }
-        }
+        public void Dispose() { if (closed) return; closed = true; queue.CompleteAdding(); }
     }
 }

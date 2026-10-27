@@ -32,6 +32,10 @@ namespace PanoramaControlApp.AppServices
         private uint _reportedPlanCaptures;
         private readonly List<RunSegment> _runSegments = new List<RunSegment>();
         private uint _lastSupportSnapshotEventSequence;
+        private readonly SemaphoreSlim _diagnosticTransferLock = new SemaphoreSlim(1, 1);
+        private readonly object _diagnosticTransferSync = new object();
+        private TaskCompletionSource<bool> _diagnosticTransferEnd;
+        private int _diagnosticTransferActive;
 
         public PanoramaSessionController(ISerialTransport transport, string logDirectory = null)
         {
@@ -63,11 +67,14 @@ namespace PanoramaControlApp.AppServices
         public DeviceStatus CurrentStatus { get; private set; }
         public PanoramaPlan ActivePlan { get { return _activePlan; } }
         public string DiagnosticLogPath { get { return _diagnosticLog == null ? string.Empty : _diagnosticLog.FilePath; } }
+        public void RecordUserAction(string action, string detail)
+        { if (_diagnosticLog != null) _diagnosticLog.Write("UI", action, detail); }
 
         public async Task ConnectAsync(string portName, int baudRate, CancellationToken cancellationToken)
         {
             ThrowIfDisposed();
             _portName = portName;
+            archiveDevice = ResolveDeviceIdentity(portName);
             _baudRate = baudRate;
             _intentionalDisconnect = false;
             await ConnectAndHandshakeAsync(false, cancellationToken).ConfigureAwait(false);
@@ -75,6 +82,8 @@ namespace PanoramaControlApp.AppServices
 
         public void Disconnect()
         {
+            Interlocked.Increment(ref restEpoch);
+            SaveRecoveryCheckpoint("CONNECTION_TIMEOUT");
             _intentionalDisconnect = true;
             _protocol.CancelPending("Sitzung beendet");
             ForgetManualAction();
@@ -111,6 +120,7 @@ namespace PanoramaControlApp.AppServices
         public async Task<CommandResult> StartAsync(uint runId, CancellationToken cancellationToken)
         {
             EnsureAcquisitionReady();
+            if (!StartAllowed) throw new InvalidOperationException(UiText.T("Geladener Restplan nicht exakt bestätigt."));
             if (CurrentStatus.State != RunState.PlanReady || _activePlan == null || _activePlan.RunId != runId)
                 throw new InvalidOperationException("Zuerst einen Plan übertragen und den Gerätestand abwarten.");
             var result = await SendCommandAsync("START", cancellationToken, runId.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
@@ -166,6 +176,7 @@ namespace PanoramaControlApp.AppServices
 
         public Task<CommandResult> StopAsync(uint runId, CancellationToken cancellationToken)
         {
+            Interlocked.Increment(ref restEpoch);
             EnsureConnected();
             return SendCommandAsync("STOP", cancellationToken, runId.ToString(CultureInfo.InvariantCulture));
         }
@@ -204,7 +215,10 @@ namespace PanoramaControlApp.AppServices
 
         public Task<CommandResult> EmergencyStopAsync(uint runId, string reason, CancellationToken cancellationToken)
         {
+            Interlocked.Increment(ref restEpoch);
             EnsureConnected();
+            // Capture checkpoints are already written on status reception. Never put
+            // storage I/O in front of the priority stop command.
             StopJogTimer(); _jogToken = 0; ForgetManualAction();
             return SendCommandAsync("ESTOP", cancellationToken, runId.ToString(CultureInfo.InvariantCulture), SanitizeReason(reason));
         }
@@ -251,13 +265,54 @@ namespace PanoramaControlApp.AppServices
         public Task<CommandResult> RequestDebugLogAsync(ushort afterSequence, CancellationToken cancellationToken)
         {
             EnsureConnected();
-            return SendCommandAsync("GET_DEBUG_LOG", cancellationToken, afterSequence.ToString(CultureInfo.InvariantCulture));
+            return ReadDiagnosticTransferAsync("GET_DEBUG_LOG", cancellationToken, afterSequence.ToString(CultureInfo.InvariantCulture));
         }
 
         public Task<CommandResult> RequestSupportBundleAsync(CancellationToken cancellationToken)
         {
             EnsureConnected();
-            return SendCommandAsync("GET_SUPPORT_BUNDLE", cancellationToken);
+            return ReadDiagnosticTransferAsync("GET_SUPPORT_BUNDLE", cancellationToken);
+        }
+
+        private async Task<CommandResult> ReadDiagnosticTransferAsync(string command, CancellationToken token, params string[] fields)
+        {
+            await _diagnosticTransferLock.WaitAsync(token).ConfigureAwait(false);
+            TaskCompletionSource<bool> end = null;
+            try
+            {
+                EnsureConnected();
+                bool hasEnd = DeviceInfo != null && DeviceInfo.HardwareTarget == "ARDUINO_NANO_R4";
+                if (hasEnd)
+                {
+                    end = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                    lock (_diagnosticTransferSync) _diagnosticTransferEnd = end;
+                    Volatile.Write(ref _diagnosticTransferActive, 1);
+                }
+                CommandResult reply = await SendCommandAsync(command, token, fields).ConfigureAwait(false);
+                if (reply.Accepted && end != null)
+                {
+                    if (await Task.WhenAny(end.Task, Task.Delay(8000, token)).ConfigureAwait(false) != end.Task)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        // An uncorrelated late END must not release the next transfer.
+                        _transport.Disconnect();
+                        throw new TimeoutException("Diagnoseübertragung nicht vollständig bestätigt.");
+                    }
+                    await end.Task.ConfigureAwait(false);
+                }
+                return reply;
+            }
+            catch
+            {
+                if (end != null && !end.Task.IsCompleted) _transport.Disconnect();
+                throw;
+            }
+            finally
+            {
+                lock (_diagnosticTransferSync) { if (_diagnosticTransferEnd == end) _diagnosticTransferEnd = null; }
+                Volatile.Write(ref _diagnosticTransferActive, 0);
+                _diagnosticTransferLock.Release();
+            }
         }
 
         private async Task EnsureIdleAsync(CancellationToken cancellationToken)
@@ -298,6 +353,7 @@ namespace PanoramaControlApp.AppServices
                 }
                 await handshakeData.ConfigureAwait(false);
                 SetConnectionState(ConnectionState.Connected);
+                EnsureAccepted(await SendCommandAsync("GET_PLAN", cancellationToken).ConfigureAwait(false), "GET_PLAN");
                 await RequestFreshStatusAsync(cancellationToken).ConfigureAwait(false);
                 StartHeartbeat();
                 try
@@ -384,7 +440,7 @@ namespace PanoramaControlApp.AppServices
                 {
                     RaiseMessage("Heartbeat konnte nicht gesendet werden: " + exception.Message);
                 }
-            }, null, 1000, 1000);
+            }, null, 200, 200);
         }
 
         private void StopHeartbeat()
@@ -528,8 +584,12 @@ namespace PanoramaControlApp.AppServices
             };
             UpdateCurrentSegment(status);
             CurrentStatus = status;
+            lastStatusPayload = string.Join("|", frame.Fields);
             LastStatusUtc = UtcNow();
             Interlocked.Increment(ref _statusVersion);
+            ObserveRetainedPause();
+            SaveRecoveryCheckpoint();
+            ReconcileRest();
             if (status.RunId == 0 || status.State == RunState.Idle) _activePlan = null;
             if (status.State == RunState.Fault && string.IsNullOrEmpty(Incident)) Incident = "Gerätefehler: " + status.LastError;
             // Fehlende Aufnahmen zuerst in chronologischer Reihenfolge an die
@@ -590,6 +650,8 @@ namespace PanoramaControlApp.AppServices
         private void ParseDebugLogEnd(ProtocolFrame frame)
         {
             if (frame.Fields.Count != 3) throw new FormatException("DEBUG_LOG_END benötigt drei Felder.");
+            ParseUShort(frame.Fields[0]); ParseUShort(frame.Fields[1]); ParseUInt(frame.Fields[2]);
+            lock (_diagnosticTransferSync) { if (_diagnosticTransferEnd != null) _diagnosticTransferEnd.TrySetResult(true); }
             RaiseMessage("Firmware-Trace vollständig: neueste Sequenz " + frame.Fields[0] +
                 ", übertragen " + frame.Fields[1] + ", ältere überschriebene Ereignisse " + frame.Fields[2] + ".");
         }
@@ -647,6 +709,8 @@ namespace PanoramaControlApp.AppServices
                 _runSegments.Clear();
             }
             _activePlan = received;
+            Interlocked.Increment(ref _planObservation);
+            ArchivePlan(received);
             if (PendingTiming != null && received.SettleTimeMs == PendingTiming.SettleTimeMs && received.TriggerPulseMs == PendingTiming.TriggerPulseMs && received.ExposureWaitMs == PendingTiming.ExposureWaitMs) PendingTiming = null;
         }
 
@@ -689,6 +753,8 @@ namespace PanoramaControlApp.AppServices
                 LoggedAtUtc = DateTime.UtcNow
             };
             ApplyKnownWarning(runEvent);
+            runEvent.RawPayload = string.Join("|", frame.Fields);
+            ArchiveCaptureEvent(runEvent);
             EventHandler<RunEventEventArgs> handler = RunEventReceived;
             if (handler != null) handler(this, new RunEventEventArgs(runEvent));
             // Erst als an den Client zugestellt markieren, wenn alle synchronen
@@ -723,6 +789,8 @@ namespace PanoramaControlApp.AppServices
             // Rasteraufnahmen rekonstruieren, damit picture_id der realen
             // chronologischen Auslösereihenfolge entspricht.
             ReconstructMissingEventsUntil(runEvent.RunId, runEvent.RasterCaptureCount, runEvent.EventSequence);
+            runEvent.RawPayload = string.Join("|", frame.Fields);
+            ArchiveCaptureEvent(runEvent);
             EventHandler<RunEventEventArgs> handler = RunEventReceived;
             if (handler != null) handler(this, new RunEventEventArgs(runEvent));
         }
@@ -762,6 +830,7 @@ namespace PanoramaControlApp.AppServices
                     Manual = false,
                     LoggedAtUtc = DateTime.UtcNow
                 };
+                ArchiveCaptureEvent(reconstructed);
                 EventHandler<RunEventEventArgs> handler = RunEventReceived;
                 if (handler != null) handler(this, new RunEventEventArgs(reconstructed));
                 _reportedPlanCaptures++;
@@ -791,6 +860,9 @@ namespace PanoramaControlApp.AppServices
         private void TransportStateChanged(object sender, TransportStateChangedEventArgs eventArgs)
         {
             if (eventArgs.Connected) return;
+            lock (_diagnosticTransferSync) { if (_diagnosticTransferEnd != null) _diagnosticTransferEnd.TrySetCanceled(); }
+            Interlocked.Increment(ref restEpoch);
+            SaveRecoveryCheckpoint("CONNECTION_TIMEOUT");
             StopHeartbeat();
             _protocol.CancelPending("Verbindung getrennt");
             ForgetManualAction();
@@ -809,6 +881,8 @@ namespace PanoramaControlApp.AppServices
 
         private void ProtocolError(object sender, ProtocolErrorEventArgs eventArgs)
         {
+            if (eventArgs.RawData == "WRITE_TIMEOUT")
+            { Uncertain = true; Incident = "Bluetooth-Schreibfrist überschritten; Gerätestand prüfen."; }
             RaiseMessage(eventArgs.Message);
         }
 

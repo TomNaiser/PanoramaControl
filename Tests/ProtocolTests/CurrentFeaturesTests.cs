@@ -200,11 +200,24 @@ namespace ProtocolTests
         public event EventHandler<TransportErrorEventArgs> Error { add { } remove { } }
         public bool IsConnected { get; private set; }
         public readonly ConcurrentQueue<string> Commands = new ConcurrentQueue<string>();
+        public readonly ConcurrentQueue<ProtocolFrame> Requests = new ConcurrentQueue<ProtocolFrame>();
         public int Pan, Tilt;
         public uint Boot = 10;
         public bool HoldJogAck;
         public bool SuppressLoadStatus;
         public bool ReplayBeforeManualAck;
+        public bool RecoveryFeatures;
+        public bool RejectStop;
+        public string FirmwareVersion = "2.4.70";
+        public string HardwareTarget = "SIMULATOR";
+        public bool HoldDebugLogEnd;
+        public uint Completed, NextIndex;
+        public ushort Revision;
+        public string ErrorCode = "NONE";
+        public bool OmitPlanReply;
+        public int StabilitySpan = 250, StabilityPan = 250, StabilityTilt = 400, StabilityWait = 15000;
+        public uint ConfigRevision = 24;
+        public Action<string> AfterCommand;
         public string DropType;
         public string[] LastManualFields;
         public string[] LastJogFields;
@@ -218,12 +231,13 @@ namespace ProtocolTests
         public void Emit(string type, params string[] fields) { LineReceived?.Invoke(this, new SerialLineReceivedEventArgs(ProtocolFrameCodec.Encode(new ProtocolFrame(0, type, fields)))); }
         public void Status()
         {
-            Emit("STATUS", plan == null ? "0" : plan.RunId.ToString(CultureInfo.InvariantCulture), state, "NONE", "0", plan == null ? "0" : plan.TotalImages.ToString(CultureInfo.InvariantCulture), "0", "0", "0", "0", Pan.ToString(CultureInfo.InvariantCulture), Tilt.ToString(CultureInfo.InvariantCulture), "0", "0", "NONE", "0", "0", "1", "0", "0", "0");
+            Emit("STATUS", plan == null ? "0" : plan.RunId.ToString(CultureInfo.InvariantCulture), state, "NONE", Completed.ToString(CultureInfo.InvariantCulture), plan == null ? "0" : plan.TotalImages.ToString(CultureInfo.InvariantCulture), "0", "0", "0", "0", Pan.ToString(CultureInfo.InvariantCulture), Tilt.ToString(CultureInfo.InvariantCulture), "0", "0", ErrorCode, NextIndex.ToString(CultureInfo.InvariantCulture), Revision.ToString(CultureInfo.InvariantCulture), "1", Completed.ToString(CultureInfo.InvariantCulture), "0", "0");
             Emit("MANUAL_STATUS", manualSequence.ToString(CultureInfo.InvariantCulture), manualKind, manualResult,
                 manualKind == "MOVE" ? LastManualFields[0] : "0", manualKind == "MOVE" ? LastManualFields[1] : "0",
                 manualSequence == 0 ? "0" : "100", manualSequence == 0 ? "0" : manualKind == "JOG" ? "750" : "3000");
         }
         public void FinishManual() { CompleteManual("REACHED"); }
+        public void SetRunState(string nextState, uint next, uint completed, string error = "NONE") { state = nextState; NextIndex = next; Completed = completed; ErrorCode = error; Status(); }
         public void CompleteManual(string result) { manualResult = result; Status(); }
         public void DeliverJogAck() { if (heldJog != null) Emit("ACK", heldJog.Sequence.ToString(CultureInfo.InvariantCulture), "JOGGING"); }
         public void Send(string line)
@@ -231,6 +245,15 @@ namespace ProtocolTests
             ProtocolFrame f; FrameDecodeError error;
             if (!ProtocolFrameCodec.TryDecode(line, out f, out error)) throw new Exception(error.ToString());
             Commands.Enqueue(f.MessageType);
+            Requests.Enqueue(f);
+            if (f.MessageType == "START" || f.MessageType == "STOP" || f.MessageType == "PAUSE" || f.MessageType == "RESUME")
+            {
+                uint run;
+                if (f.Fields.Count != 1) { Emit("NACK", f.Sequence.ToString(CultureInfo.InvariantCulture), "BAD_FIELD_COUNT"); return; }
+                if (!uint.TryParse(f.Fields[0], NumberStyles.None, CultureInfo.InvariantCulture, out run) || run != (plan == null ? 0 : plan.RunId))
+                { Emit("NACK", f.Sequence.ToString(CultureInfo.InvariantCulture), "RUN_ID_MISMATCH"); return; }
+                if (f.MessageType == "STOP" && RejectStop) { Emit("NACK", f.Sequence.ToString(CultureInfo.InvariantCulture), "REJECTED"); return; }
+            }
             if (f.MessageType == "MANUAL_JOG_START_VELOCITY") LastJogFields = f.Fields.ToArray();
             if (f.MessageType == DropType) return;
             if (f.MessageType == "HEARTBEAT") return;
@@ -241,27 +264,38 @@ namespace ProtocolTests
             switch (f.MessageType)
             {
                 case "HELLO":
-                    Emit("DEVICE_INFO", "2.4.70", "2026-10-17", "2", "SIMULATOR"); Emit("DEVICE_SESSION", Boot.ToString(CultureInfo.InvariantCulture));
+                    Emit("DEVICE_INFO", FirmwareVersion, "2026-10-17", "2", HardwareTarget); Emit("DEVICE_SESSION", Boot.ToString(CultureInfo.InvariantCulture));
                     Emit("CAPABILITIES", "-180000", "180000", "-45000", "45000", "1");
                     foreach (string type in new[] { "NAVIGATION_CAPABILITIES", "MOTION_CAPABILITIES", "MANUAL_STATUS_CAPABILITIES", "MANUAL_JOG_CAPABILITIES" }) Emit(type, "1");
                     Emit("RUN_SPEED_CAPABILITIES", "2000"); Emit("MANUAL_JOG_PAN_VELOCITY_CAPABILITIES", "20000"); Emit("MANUAL_JOG_VELOCITY_CAPABILITIES", "10000");
-                    Emit("CAPTURE_WARNING_SETTINGS", "500", "500", "24"); Emit("TILT_CALIBRATION", "0", "-55000", "50000"); break;
+                    Emit("CAPTURE_WARNING_SETTINGS", "500", "500", ConfigRevision.ToString(CultureInfo.InvariantCulture)); Emit("TILT_CALIBRATION", "0", "-55000", "50000");
+                    if (RecoveryFeatures) { Emit("CAPTURE_RECOVERY_CAPABILITIES", "1"); Emit("CAPTURE_STABILITY_SETTINGS", "250", "250", "400", "15000", ConfigRevision.ToString(CultureInfo.InvariantCulture)); } break;
+                case "GET_PLAN": if (plan != null && !OmitPlanReply) Emit("PLAN", plan.ToProtocolFields()); break;
+                case "GET_DEBUG_LOG":
+                case "GET_SUPPORT_BUNDLE": if (!HoldDebugLogEnd) Emit("DEBUG_LOG_END", "1", "0", "0"); break;
+                case "GET_CAPTURE_STABILITY": Emit("CAPTURE_STABILITY_SETTINGS", StabilitySpan.ToString(), StabilityPan.ToString(), StabilityTilt.ToString(), StabilityWait.ToString(), ConfigRevision.ToString()); break;
+                case "SET_CAPTURE_STABILITY":
+                    StabilitySpan = int.Parse(f.Fields[0]); StabilityPan = int.Parse(f.Fields[1]); StabilityTilt = int.Parse(f.Fields[2]); StabilityWait = int.Parse(f.Fields[3]); ConfigRevision++;
+                    Emit("CAPTURE_STABILITY_SETTINGS", StabilitySpan.ToString(), StabilityPan.ToString(), StabilityTilt.ToString(), StabilityWait.ToString(), ConfigRevision.ToString()); break;
                 case "GET_STATUS": Status(); break;
                 case "GET_CAPABILITIES": Emit("CAPABILITIES", "-180000", "180000", "-45000", "45000", "1"); break;
                 case "LOAD_PLAN":
                     plan = PanoramaPlan.FromProtocolFields(f.Fields);
-                    state = "PLAN_READY"; Emit("PLAN", plan.ToProtocolFields()); if (!SuppressLoadStatus) Status(); break;
+                    Completed = NextIndex = 0; Revision = 0; ErrorCode = "NONE";
+                    state = "PLAN_READY"; if (!OmitPlanReply) Emit("PLAN", plan.ToProtocolFields()); if (!SuppressLoadStatus) Status(); break;
                 case "START": state = "RUNNING"; Status(); break;
                 case "PAUSE": state = "PAUSED"; Status(); break;
                 case "RESUME": state = "RUNNING"; Status(); break;
                 case "STOP": state = "STOPPED"; Status(); break;
                 case "ESTOP": state = "STOPPED"; if (manualKind != "NONE") manualResult = "CANCELLED"; Status(); break;
-                case "CLEAR_RUN": state = "IDLE"; plan = null; Status(); break;
+                case "CLEAR_RUN": state = "IDLE"; plan = null; Completed = NextIndex = 0; ErrorCode = "NONE"; Status(); break;
+                case "RETRY_COLUMN": Revision++; NextIndex = 0; Status(); break;
                 case "MANUAL_MOVE": LastManualFields = f.Fields.ToArray(); manualSequence = f.Sequence; manualKind = "MOVE"; manualResult = "ACTIVE"; Status(); break;
                 case "MANUAL_JOG_START_VELOCITY": manualSequence = f.Sequence; manualKind = "JOG"; manualResult = "ACTIVE"; Status(); break;
                 case "TRIGGER_ONCE": manualSequence = f.Sequence; manualKind = "TRIGGER"; manualResult = "TRIGGERED"; Status(); break;
                 case "MANUAL_JOG_STOP": if (manualKind != "NONE") manualResult = "CANCELLED"; Status(); break;
             }
+            if (AfterCommand != null) AfterCommand(f.MessageType);
         }
     }
 }

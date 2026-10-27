@@ -1,4 +1,5 @@
-﻿
+﻿using PanoramaControlApp.AppServices;
+
 
 namespace PanoramaControlApp
 {
@@ -15,6 +16,7 @@ namespace PanoramaControlApp
         /// <param name="disposing">True, wenn verwaltete Ressourcen gelöscht werden sollen; andernfalls False.</param>
         protected override void Dispose(bool disposing)
         {
+            if (disposing) ReleaseSessionResources();
             if (disposing && (components != null))
             {
                 components.Dispose();
@@ -763,7 +765,7 @@ namespace PanoramaControlApp
             this.TimelapseStateLabel.Name = "TimelapseStateLabel";
             this.TimelapseStateLabel.Size = new System.Drawing.Size(85, 16);
             this.TimelapseStateLabel.TabIndex = 4;
-            this.TimelapseStateLabel.Text = "Status: Bereit";
+            this.TimelapseStateLabel.Text = UiText.T("Status: Bereit");
             // 
             // ShutterPulseCountLabel
             // 
@@ -781,7 +783,7 @@ namespace PanoramaControlApp
             this.LastShutterPulseLabel.Name = "LastShutterPulseLabel";
             this.LastShutterPulseLabel.Size = new System.Drawing.Size(105, 16);
             this.LastShutterPulseLabel.TabIndex = 6;
-            this.LastShutterPulseLabel.Text = "Letzter Puls: --";
+            this.LastShutterPulseLabel.Text = UiText.T("Letzter Puls: --");
             // 
             // buttonStopTimeLapse
             // 
@@ -837,7 +839,7 @@ namespace PanoramaControlApp
             this.TestTabPage.Padding = new System.Windows.Forms.Padding(3);
             this.TestTabPage.Size = new System.Drawing.Size(1024, 307);
             this.TestTabPage.TabIndex = 4;
-            this.TestTabPage.Text = "Antrieb && Grenzen";
+            this.TestTabPage.Text = UiText.T("Antrieb && Grenzen");
             this.TestTabPage.UseVisualStyleBackColor = true;
             // 
             // ApplySpeedTestButton

@@ -35,7 +35,7 @@
     <UpdateRequired>false</UpdateRequired>
     <MapFileExtensions>true</MapFileExtensions>
     <ApplicationRevision>15</ApplicationRevision>
-    <ApplicationVersion>27.4.4.0</ApplicationVersion>
+    <ApplicationVersion>27.5.4.0</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <PublishWizardCompleted>true</PublishWizardCompleted>
     <BootstrapperEnabled>true</BootstrapperEnabled>
@@ -103,9 +103,21 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Application\PanoramaPlanFactory.cs" />
+    <Compile Include="Application\SqliteDatabase.cs" />
+    <Compile Include="Application\RunStore.cs" />
+    <Compile Include="Application\RunRecovery.cs" />
+    <Compile Include="Application\RunExport.cs" />
+    <Compile Include="Application\LiveRunBackup.cs" />
+    <Compile Include="Application\DeviceIdentity.cs" />
+    <Compile Include="Application\UiText.cs" />
+    <Compile Include="Application\UiText.Windows.cs" />
+    <Compile Include="Application\UiText.Catalogue.cs" />
+    <Compile Include="Application\PanoramaSessionController.Parity.cs" />
+
     <Compile Include="Application\PanoramaSessionController.Operations.cs" />
     <Compile Include="Application\RunArchive.cs" />
     <Compile Include="Domain\SessionFeatures.cs" />
+    <Compile Include="Form1.Parity.cs"><SubType>Form</SubType></Compile>
     <Compile Include="Form1.Current.cs"><SubType>Form</SubType></Compile>
     <Compile Include="Application\RunTimingSettings.cs" />
     <Compile Include="Application\PapyWizardRunExporter.cs" />

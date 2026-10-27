@@ -57,6 +57,7 @@ namespace PanoramaControlApp.AppServices
             get
             {
                 CheckManualDeadline();
+                if (preparingRest) return UiText.T("Restauftrag wird vorbereitet …");
                 if (_recovering) return "Gerätestand wird geprüft …";
                 if (!string.IsNullOrEmpty(Incident)) return Incident + " · Fehler quittieren / Gerätestand prüfen";
                 if (!StatusFresh) return "Aktuelle Statusdaten fehlen · Verbindung prüfen";
@@ -68,6 +69,7 @@ namespace PanoramaControlApp.AppServices
                 if (ManualStatus != null && ManualStatus.Active || _manualPendingSequence != 0) return "Manuelle Aktion wird abgeschlossen …";
                 if (JogActive) return "Handfahrt aktiv · Pfeil loslassen";
                 if (Busy) return "Befehlsbestätigung wird abgewartet …";
+                if (Volatile.Read(ref _diagnosticTransferActive) != 0) return "Diagnoseübertragung wird abgeschlossen …";
                 return "";
             }
         }
@@ -128,6 +130,7 @@ namespace PanoramaControlApp.AppServices
         }
         private void ResetConnectionData()
         {
+            Interlocked.Increment(ref restEpoch);
             _protocol.CancelPending("Neue Verbindung");
             LastStatusUtc = LastManualStatusUtc = DateTime.MinValue;
             Features = new SessionFeatures(); Capabilities = null; ManualStatus = null;
@@ -178,6 +181,7 @@ namespace PanoramaControlApp.AppServices
             SessionFeatures.Count(frame.Fields, 1); uint next = ParseUInt(frame.Fields[0]);
             if (BootKnown && (next != BootId || next == 0))
             {
+                Interlocked.Increment(ref restEpoch); qualityRun = 0; lastQualityOrdinal = -1; retainedIncident = "";
                 _protocol.CancelPending("Gerät neu gestartet");
                 LastStatusUtc = LastManualStatusUtc = DateTime.MinValue;
                 _activePlan = null; _runSegments.Clear(); _reportedPlanCaptures = 0;
@@ -223,6 +227,8 @@ namespace PanoramaControlApp.AppServices
         public async Task RecoverAsync(CancellationToken token)
         {
             EnsureConnected(); if (_recovering) return;
+            SaveRecoveryCheckpoint();
+            if (ArchiveError.Length > 0) throw new InvalidOperationException(ArchiveError);
             _recovering = true;
             ForgetManualAction();
             try
@@ -236,7 +242,18 @@ namespace PanoramaControlApp.AppServices
                     await WaitForStateAsync(RunState.Idle, token).ConfigureAwait(false);
                 }
                 EnsureAccepted(await RefreshCapabilitiesAsync(token).ConfigureAwait(false), "GET_CAPABILITIES");
+                EnsureAccepted(await SendCommandAsync("GET_PLAN", token).ConfigureAwait(false), "GET_PLAN");
                 await RequestFreshStatusAsync(token).ConfigureAwait(false);
+                DateTime healthyStart = DateTime.UtcNow;
+                int healthyStatuses = 1;
+                while (healthyStatuses < 3 || (DateTime.UtcNow - healthyStart).TotalMilliseconds < 1000)
+                {
+                    token.ThrowIfCancellationRequested();
+                    await Task.Delay(350, token).ConfigureAwait(false);
+                    await RequestFreshStatusAsync(token).ConfigureAwait(false);
+                    if (CurrentStatus.State == RunState.Fault || ManualStatus != null && ManualStatus.Active) throw new InvalidOperationException("Gerät ist noch nicht bereit.");
+                    healthyStatuses++;
+                }
                 if (CurrentStatus.State == RunState.Fault || ManualStatus != null && ManualStatus.Active) throw new InvalidOperationException("Gerät ist noch nicht bereit.");
                 Incident = ""; Uncertain = false; _manualPendingSequence = 0;
             }
@@ -245,6 +262,9 @@ namespace PanoramaControlApp.AppServices
         public async Task AbortPlanAsync(CancellationToken token)
         {
             EnsureConnected();
+            if (preparingRest) throw new InvalidOperationException(UiText.T("Restauftrag wird vorbereitet …"));
+            SaveRecoveryCheckpoint();
+            if (ArchiveError.Length > 0) throw new InvalidOperationException(ArchiveError);
             EnsureAccepted(await StopAsync(CurrentStatus.RunId, token).ConfigureAwait(false), "STOP");
             await RequestStatusAsync(token).ConfigureAwait(false);
             if (CurrentStatus.State != RunState.Idle)
@@ -332,6 +352,8 @@ namespace PanoramaControlApp.AppServices
             SessionFeatures.Count(frame.Fields, 3); uint run = ParseUInt(frame.Fields[0]), capture = ParseUInt(frame.Fields[1]); int flags = ParseInt(frame.Fields[2]);
             if (run == 0 || capture == 0 || flags < 1 || flags > 15) throw new FormatException("Ungültige Aufnahmewarnung.");
             _captureWarnings[run + ":" + capture] = flags;
+            string warningDevice = archiveDevice; uint warningBoot = BootId;
+            ArchiveAction(() => runStore.Warn(runStore.SelectRun(warningDevice, warningBoot, run), capture, flags));
             var handler = CaptureWarningReceived; if (handler != null) handler(this, new CaptureWarningEventArgs(run, capture, flags));
         }
         private void ApplyKnownWarning(RunEvent capture)

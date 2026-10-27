@@ -1,6 +1,7 @@
 using System;
 using System.IO.Ports;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace PanoramaControlApp.Communication
 {
@@ -78,18 +79,18 @@ namespace PanoramaControlApp.Communication
         {
             if (string.IsNullOrEmpty(text)) throw new ArgumentException("Zu sendender Text fehlt.", "text");
             ThrowIfDisposed();
-            try
+            SerialPort source;
+            lock (_sync)
             {
-                lock (_sync)
-                {
-                    if (_port == null || !_port.IsOpen) throw new InvalidOperationException("Der Bluetooth-COM-Port ist nicht verbunden.");
-                    _port.Write(text);
-                }
+                source = _port;
+                if (source == null || !source.IsOpen) throw new InvalidOperationException("Der Bluetooth-COM-Port ist nicht verbunden.");
             }
+            try { source.Write(text); }
             catch (Exception exception)
             {
-                RaiseError("Send", exception);
-                Disconnect();
+                bool current;
+                lock (_sync) { current = ReferenceEquals(source, _port); if (current) { ClosePortLocked(); _receiveBuffer.Clear(); } }
+                if (current) { RaiseStateChanged(false); RaiseError("Send", exception); }
                 throw;
             }
         }
@@ -97,16 +98,17 @@ namespace PanoramaControlApp.Communication
         private void PortDataReceived(object sender, SerialDataReceivedEventArgs eventArgs)
         {
             string chunk;
+            SerialPort source = sender as SerialPort;
             try
             {
-                SerialPort source = sender as SerialPort;
                 if (source == null || !source.IsOpen) return;
                 chunk = source.ReadExisting();
             }
             catch (Exception exception)
             {
-                RaiseError("Receive", exception);
-                Disconnect();
+                bool current;
+                lock (_sync) { current = ReferenceEquals(source, _port); if (current) { ClosePortLocked(); _receiveBuffer.Clear(); } }
+                if (current) { RaiseStateChanged(false); RaiseError("Receive", exception); }
                 return;
             }
             if (string.IsNullOrEmpty(chunk)) return;
@@ -114,6 +116,7 @@ namespace PanoramaControlApp.Communication
             string[] completedLines;
             lock (_sync)
             {
+                if (!ReferenceEquals(source, _port)) return;
                 _receiveBuffer.Append(chunk);
                 if (_receiveBuffer.Length > MaximumBufferedCharacters)
                 {
@@ -145,14 +148,9 @@ namespace PanoramaControlApp.Communication
             SerialPort oldPort = _port;
             _port = null;
             oldPort.DataReceived -= PortDataReceived;
-            try
-            {
-                if (oldPort.IsOpen) oldPort.Close();
-            }
-            finally
-            {
-                oldPort.Dispose();
-            }
+            // Detach immediately. A driver stuck in Write/Close must not hold the
+            // session lock or later close a newly opened port.
+            Task.Run(() => { try { oldPort.Dispose(); } catch (Exception) { } });
         }
 
         private void RaiseStateChanged(bool connected)

@@ -2,6 +2,8 @@ namespace PanoramaControlApp.Domain
 {
     public sealed class RunEvent
     {
+        public string ArchiveKey { get; set; }
+        public string RawPayload { get; set; }
         public uint EventSequence { get; set; }
         public uint RunId { get; set; }
         public string EventType { get; set; }
